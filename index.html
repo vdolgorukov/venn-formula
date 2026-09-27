@@ -1,0 +1,492 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Формула по диаграмме Венна</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+:root{
+  --bg:#F2F4F8; --panel:#FFFFFF; --ink:#1B2233; --muted:#596378; --line:#C8CFDB;
+  --accent:#2F4DB8; --shade:rgba(47,77,184,.13); --hover:rgba(47,77,184,.07);
+  --chip-on:#E4E9FA;
+  --math:"STIX Two Text","Cambria Math","Times New Roman",serif;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#10141C; --panel:#171D28; --ink:#E3E7EF; --muted:#98A2B5; --line:#303949;
+    --accent:#90A5FF; --shade:rgba(144,165,255,.16); --hover:rgba(144,165,255,.08);
+    --chip-on:#232D48;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#10141C; --panel:#171D28; --ink:#E3E7EF; --muted:#98A2B5; --line:#303949;
+  --accent:#90A5FF; --shade:rgba(144,165,255,.16); --hover:rgba(144,165,255,.08);
+  --chip-on:#232D48;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:28px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+header{display:flex;flex-wrap:wrap;gap:14px 24px;justify-content:space-between;align-items:flex-end}
+header h1{font-family:var(--math);font-weight:600;font-size:clamp(24px,3.4vw,32px);margin:0;text-wrap:balance;letter-spacing:.005em}
+header p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-radius:0;padding:7px 14px;font-size:14px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--chip-on);color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+svg#venn{width:100%;height:auto;display:block;cursor:pointer;touch-action:manipulation;user-select:none}
+.reg{fill:transparent}
+.reg.hov{fill:var(--hover)}
+.reg.on{fill:url(#hatch)}
+.hatch-bg{fill:var(--shade)}
+.hatch-ln{stroke:var(--accent);stroke-width:1.3}
+.outline{fill:none;stroke:var(--ink);stroke-width:1.6;pointer-events:none}
+.urect{fill:none;stroke:var(--ink);stroke-width:1.4;pointer-events:none}
+.lbl{font-family:var(--math);font-style:italic;font-size:22px;fill:var(--ink);pointer-events:none}
+.status{font-family:var(--math);font-size:17px;min-height:1.6em;color:var(--muted)}
+.status b{color:var(--ink);font-weight:400}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (max-width:460px){.chips{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.chip{font-family:var(--math);font-size:16px;padding:6px 4px;text-align:center;white-space:nowrap;overflow:hidden}
+.n4 .chip{font-size:14.5px;padding:5px 2px}
+.chip[aria-pressed="true"]{background:var(--chip-on);border-color:var(--accent)}
+.names{display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--muted);font-size:13.5px}
+.names label{display:flex;gap:5px;align-items:center}
+.names input{width:44px;font-family:var(--math);font-size:16px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);text-align:center}
+.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;margin:0}
+.tools{display:flex;justify-content:flex-end}
+#out{display:flex;flex-direction:column;gap:14px;min-width:0}
+.f{display:flex;flex-direction:column;gap:6px}
+.or{margin:0;font-family:var(--math);font-style:italic;font-size:16px;color:var(--muted);display:flex;align-items:center;gap:10px}
+.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.pending{margin:0;font-size:13px;color:var(--muted)}
+.expr{font-family:var(--math);font-size:21px;line-height:1.7;overflow-wrap:anywhere}
+.f.main .expr{font-size:26px}
+svg.op{display:inline-block;width:.56em;height:.68em;vertical-align:-.02em;overflow:visible}
+svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
+.ov{display:inline-block;border-top:1.3px solid currentColor;padding-top:1px;line-height:1.15}
+.fl{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.texbtn{flex:none;font-family:var(--mono);font-size:12px;padding:4px 9px;color:var(--muted)}
+.texbtn:hover{color:var(--ink)}
+.texfb{flex:1;min-width:0;font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 8px;overflow-wrap:anywhere;user-select:all}
+.note{font-size:13px;color:var(--muted);margin:0;max-width:70ch}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Формула по диаграмме Венна</h1>
+      <p>Щёлкните по областям диаграммы, чтобы закрасить их. Справа появятся равносильные выражения для закрашенной части.</p>
+    </div>
+    <div class="row">
+      <div class="seg" role="group" aria-label="Число множеств">
+        <button type="button" id="m3" aria-pressed="true">3 множества</button>
+        <button type="button" id="m4" aria-pressed="false">4 множества</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Диаграмма" id="left">
+      <svg id="venn" viewBox="0 0 420 340" role="img" aria-label="Диаграмма Венна"></svg>
+      <div class="status" id="status" aria-live="polite">&nbsp;</div>
+      <div class="row">
+        <button id="bClear" type="button">Очистить</button>
+        <button id="bAll" type="button">Закрасить всё</button>
+        <button id="bInv" type="button">Инвертировать</button>
+      </div>
+      <p class="eyebrow">Области (конституенты)</p>
+      <div class="chips" id="chips"></div>
+      <div class="names">
+        <span>Имена:</span>
+        <label>1 <input id="n0" value="A" maxlength="3" aria-label="Имя первого множества"></label>
+        <label>2 <input id="n1" value="B" maxlength="3" aria-label="Имя второго множества"></label>
+        <label>3 <input id="n2" value="C" maxlength="3" aria-label="Имя третьего множества"></label>
+        <label id="lab3" hidden>4 <input id="n3" value="D" maxlength="3" aria-label="Имя четвёртого множества"></label>
+        <label>универсум <input id="nU" value="U" maxlength="3" aria-label="Имя универсума"></label>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Формулы">
+      <div class="tools"><div class="seg"><button type="button" id="bDiff" aria-pressed="true">Использовать разность</button></div></div>
+      <div id="out"></div>
+    </section>
+  </div>
+
+  <p class="note">Варианты по порядку: самая короткая формула по числу вхождений букв (полный перебор); если включена разность, сначала с ней, потом без неё. Затем «структурная» запись: из множества, построенного только с помощью ∪ и ∩, вычитается другое такое же, из него третье и т. д. (например, объединение попарных пересечений минус пересечение всех трёх); без разности вычитание записывается через пересечение с дополнением. Дальше минимальная ДНФ, минимальная КНФ и объединение конституент. Совпадающие варианты не повторяются, скобки при смешанных операциях ставятся всегда. Для четырёх множеств перебор занимает несколько секунд после первого переключения.</p>
+</div>
+
+<script>
+(function(){
+  // ---------- геометрия ----------
+  const MODES={
+    3:{vb:'0 0 420 340', U:[8,8,404,324], uLbl:[20,322],
+       shapes:[{cx:160,cy:138,r:95},{cx:260,cy:138,r:95},{cx:210,cy:224,r:95}],
+       lbls:[[52,58],[356,58],[318,316]]},
+    4:{vb:'0 70 500 400', U:[6,78,488,384], uLbl:[18,454],
+       shapes:[{cx:175,cy:300,rx:180,ry:112.5,rot:-140},{cx:225,cy:250,rx:180,ry:112.5,rot:-140},
+               {cx:275,cy:250,rx:180,ry:112.5,rot:-40},{cx:325,cy:300,rx:180,ry:112.5,rot:-40}],
+       lbls:[[16,176],[64,120],[436,120],[484,176]]}
+  };
+  const NS='http://www.w3.org/2000/svg';
+  const svg=document.getElementById('venn');
+  let n=3, names=['A','B','C','D'], uName='U';
+  const state={3:null,4:null};
+  let f=0, regEls=[], hov=-1, useDiff=true;
+
+  function shapeTag(s,extra){
+    return s.r? `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" ${extra}/>`
+              : `<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" transform="rotate(${s.rot} ${s.cx} ${s.cy})" ${extra}/>`;
+  }
+  function inside(s,x,y){
+    if(s.r) return (x-s.cx)**2+(y-s.cy)**2<=s.r*s.r;
+    const t=s.rot*Math.PI/180, dx=x-s.cx, dy=y-s.cy;
+    const u=dx*Math.cos(t)+dy*Math.sin(t), v=-dx*Math.sin(t)+dy*Math.cos(t);
+    return (u/s.rx)**2+(v/s.ry)**2<=1;
+  }
+  function buildSvg(){
+    const G=MODES[n], [ux,uy,uw,uh]=G.U;
+    let d=`<defs><pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)"><rect class="hatch-bg" width="8" height="8"/><line class="hatch-ln" x1="0" y1="0" x2="0" y2="8"/></pattern>`;
+    G.shapes.forEach((s,i)=>{
+      d+=`<clipPath id="c${i}">${shapeTag(s,'')}</clipPath>`;
+      d+=`<mask id="k${i}" maskUnits="userSpaceOnUse" x="${ux-10}" y="${uy-10}" width="${uw+20}" height="${uh+20}"><rect x="${ux-10}" y="${uy-10}" width="${uw+20}" height="${uh+20}" fill="#fff"/>${shapeTag(s,'fill="#000"')}</mask>`;
+    });
+    d+='</defs><g id="regions">';
+    const M=1<<n;
+    for(let m=0;m<M;m++){
+      let node=`<rect class="reg" data-m="${m}" x="${ux}" y="${uy}" width="${uw}" height="${uh}"/>`;
+      for(let i=0;i<n;i++){
+        const inn=(m>>(n-1-i))&1;
+        node= inn? `<g clip-path="url(#c${i})">${node}</g>` : `<g mask="url(#k${i})">${node}</g>`;
+      }
+      d+=node;
+    }
+    d+='</g>';
+    d+=`<rect class="urect" x="${ux}" y="${uy}" width="${uw}" height="${uh}" rx="3"/>`;
+    G.shapes.forEach(s=>d+=shapeTag(s,'class="outline"'));
+    G.lbls.forEach((p,i)=>d+=`<text class="lbl" data-l="${i}" x="${p[0]}" y="${p[1]}" text-anchor="middle">${esc(names[i])}</text>`);
+    d+=`<text class="lbl" data-l="U" x="${G.uLbl[0]}" y="${G.uLbl[1]}">${esc(uName)}</text>`;
+    svg.setAttribute('viewBox',G.vb);
+    svg.setAttribute('aria-label',`Диаграмма Венна для ${n===3?'трёх':'четырёх'} множеств`);
+    svg.innerHTML=d;
+    regEls=[...svg.querySelectorAll('.reg')].sort((a,b)=>a.dataset.m-b.dataset.m);
+  }
+  function regionAt(evt){
+    const pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
+    const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+    const [ux,uy,uw,uh]=MODES[n].U;
+    if(p.x<ux||p.x>ux+uw||p.y<uy||p.y>uy+uh) return -1;
+    let m=0;
+    MODES[n].shapes.forEach((s,i)=>{ if(inside(s,p.x,p.y)) m|=1<<(n-1-i); });
+    return m;
+  }
+  svg.addEventListener('click',e=>{const m=regionAt(e); if(m>=0){f^=1<<m; update();}});
+  svg.addEventListener('mousemove',e=>{const m=regionAt(e); if(m!==hov){hov=m; paint(); showStatus();}});
+  svg.addEventListener('mouseleave',()=>{hov=-1; paint(); showStatus();});
+
+  // ---------- выражения ----------
+  const Var=i=>({t:'v',i}), Not=x=>({t:'n',x}), Bin=(op,l,r)=>({t:'b',op,l,r}), Const=v=>({t:'c',v});
+  function fold(op,arr){return arr.reduce((a,b)=>a?Bin(op,a,b):b,null);}
+  function lit(i,pos){return pos?Var(i):Not(Var(i));}
+  function minterm(m){const a=[];for(let i=0;i<n;i++) a.push(lit(i,(m>>(n-1-i))&1)); return fold('i',a);}
+  function varMask(i){let v=0;for(let m=0;m<(1<<n);m++) if((m>>(n-1-i))&1) v|=1<<m; return v;}
+  const FULL=()=>(1<<(1<<n))-1;
+
+  const opSvg=(d,lbl,sp)=>`${sp}<svg class="op" viewBox="0 0 10 12" role="img" aria-label="${lbl}"><path d="${d}"/></svg>${sp}`;
+  const PU='M1.2 1v5.3a3.8 3.8 0 0 0 7.6 0V1', PI_='M1.2 11V5.7a3.8 3.8 0 0 1 7.6 0V11';
+  const PD='M2.2 0.5L7.8 11.5';
+  const OPS={u:opSvg(PU,'∪',' '), i:opSvg(PI_,'∩',' '), d:opSvg(PD,'∖',' ')};
+  const OPSc={u:opSvg(PU,'∪','&#8202;'), i:opSvg(PI_,'∩','&#8202;'), d:opSvg(PD,'∖','&#8202;')};
+  const RH={ name:i=>esc(names[i]), u:()=>esc(uName), empty:()=>'∅',
+    neg:s=>'<span class="ov">'+s+'</span>', op:o=>OPS[o], paren:s=>'('+s+')'};
+  const RC=Object.assign({},RH,{op:o=>OPSc[o]});
+  const TEXOP={u:' \\cup ', i:' \\cap ', d:' \\setminus '};
+  const RT={ name:i=>texName(names[i]), u:()=>texName(uName), empty:()=>'\\varnothing',
+    neg:s=>'\\overline{'+s+'}', op:o=>TEXOP[o], paren:s=>'('+s+')'};
+  function texName(s){return s.length>1?'\\mathit{'+s+'}':s;}
+  function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  function flat(x,op,out){ if(x.t==='b'&&x.op===op){flat(x.l,op,out);flat(x.r,op,out);} else out.push(x); return out;}
+  function minVar(x){return x.t==='v'?x.i:x.t==='c'?9:x.t==='n'?minVar(x.x):Math.min(minVar(x.l),minVar(x.r));}
+  function varsOf(x,acc=[]){ if(x.t==='v') acc.push(x.i); else if(x.t==='n') varsOf(x.x,acc); else if(x.t==='b'){varsOf(x.l,acc);varsOf(x.r,acc);} return acc; }
+  function cmpNodes(a,b){ // порядок операндов: сначала без дополнения над составным, затем по буквам лексикографически
+    const ra=(a.t==='n'&&a.x.t!=='v')?1:0, rb=(b.t==='n'&&b.x.t!=='v')?1:0;
+    if(ra!==rb) return ra-rb;
+    const va=[...new Set(varsOf(a))].sort(), vb=[...new Set(varsOf(b))].sort();
+    for(let i=0;i<Math.min(va.length,vb.length);i++) if(va[i]!==vb[i]) return va[i]-vb[i];
+    const d=va.length-vb.length||countLeaves(a)-countLeaves(b)||negs(a)-negs(b);
+    if(d) return d;
+    const sa=render(a,RT,null), sb=render(b,RT,null);
+    return sa<sb?-1:sa>sb?1:0;
+  }
+  function negs(x){return x.t==='n'?1+negs(x.x):x.t==='b'?negs(x.l)+negs(x.r):0;}
+  function countLeaves(x){return x.t==='v'?1:x.t==='c'?1:x.t==='n'?countLeaves(x.x):countLeaves(x.l)+countLeaves(x.r);}
+  function render(x,Rd,parentOp){
+    if(x.t==='v') return Rd.name(x.i);
+    if(x.t==='c') return x.v==='U'?Rd.u():Rd.empty();
+    if(x.t==='n') return Rd.neg(render(x.x,Rd,null));
+    if(x.op==='d'){ // разность не коммутативна и не ассоциативна: операнды-выражения всегда в скобках
+      const s=render(x.l,Rd,'d')+Rd.op('d')+render(x.r,Rd,'d');
+      return parentOp?Rd.paren(s):s;
+    }
+    const parts=flat(x,x.op,[]).sort(cmpNodes).map(y=>render(y,Rd,x.op));
+    const s=parts.join(Rd.op(x.op));
+    return parentOp&&parentOp!==x.op?Rd.paren(s):s;
+  }
+
+  // ---------- кратчайшая формула: перебор в фоновом потоке ----------
+  const workerSrc=`onmessage=function(e){
+    const n=e.data.n, D=e.data.d, M=1<<n, S=Math.pow(2,M), FULL=S-1;
+    const V=[];for(let i=0;i<n;i++){let v=0;for(let m=0;m<M;m++) if((m>>(n-1-i))&1) v|=1<<m; V.push(v);}
+    const L=new Uint8Array(S),K=new Uint16Array(S),T=new Int8Array(S),A=new Int32Array(S),B=new Int32Array(S);
+    let found=0; const levels=[[],[]];
+    function put(fn,t,a,b,lv,key,lvl){ if(L[fn]===0){L[fn]=lv;K[fn]=key;T[fn]=t;A[fn]=a;B[fn]=b;lvl.push(fn);found++;} else if(L[fn]===lv&&key<K[fn]){K[fn]=key;T[fn]=t;A[fn]=a;B[fn]=b;} }
+    for(let i=0;i<n;i++) put(V[i],0,i,0,1,0,levels[1]);
+    for(let i=0;i<n;i++) put(FULL&~V[i],1,i,0,1,1,levels[1]);
+    const post=done=>postMessage({n,d:D,done,L:L.slice(),T:T.slice(),A:A.slice(),B:B.slice()});
+    for(let lv=2;found<S&&lv<40;lv++){
+      const lvl=[];
+      for(let i=1;i<=lv-i;i++){const X=levels[i],Y=levels[lv-i];
+        for(let p=0;p<X.length;p++){const a=X[p],ka=K[a];for(let q=0;q<Y.length;q++){const b=Y[q],k=ka+K[b]+1; put(a|b,2,a,b,lv,k,lvl); put(a&b,3,a,b,lv,k,lvl); if(D){put(a&~b&FULL,5,a,b,lv,k,lvl); put(b&~a&FULL,5,b,a,lv,k,lvl);}}}}
+      for(let j=0;j<lvl.length;j++){const fn=lvl[j]; put(FULL&~fn,4,fn,0,lv,K[fn]+10,lvl);}
+      levels[lv]=lvl;
+      if(found<S) post(false);
+    }
+    post(true);
+  };`;
+  const tables={}, started={};
+  function startSearch(k,d){
+    const key=k+':'+d;
+    if(started[key]) return; started[key]=true;
+    let w;
+    try{ w=new Worker(URL.createObjectURL(new Blob([workerSrc],{type:'text/javascript'}))); }
+    catch(err){ started[key]='fail'; return; }
+    w.onmessage=e=>{ tables[key]=e.data; if(e.data.done) w.terminate(); if(e.data.n===n) renderOut(); };
+    w.onerror=()=>{ started[key]='fail'; if(k===n) renderOut(); };
+    w.postMessage({n:k,d});
+  }
+  function shortest(fn,d){
+    if(fn===0) return Const('empty'); if(fn===FULL()) return Const('U');
+    const t=tables[n+':'+d]; if(!t||!t.L[fn]) return null;
+    const build=g=>{ const ty=t.T[g];
+      if(ty===0) return Var(t.A[g]); if(ty===1) return Not(Var(t.A[g]));
+      if(ty===2) return Bin('u',build(t.A[g]),build(t.B[g])); if(ty===3) return Bin('i',build(t.A[g]),build(t.B[g]));
+      if(ty===5) return Bin('d',build(t.A[g]),build(t.B[g]));
+      return Not(build(t.A[g])); };
+    return build(fn);
+  }
+
+  // ---------- минимальная ДНФ (точное покрытие простыми импликантами) ----------
+  const cubeCache={};
+  function cubes(){
+    if(cubeCache[n]) return cubeCache[n];
+    const res=[], total=Math.pow(3,n);
+    for(let c=0;c<total-1;c++){ // последний код = все «нет буквы»
+      const spec=[];let x=c;for(let i=n-1;i>=0;i--){spec[i]=x%3;x=Math.floor(x/3);}
+      if(spec.every(s=>s===2)) continue;
+      let mask=0;
+      for(let m=0;m<(1<<n);m++) if(spec.every((s,i)=>s===2||s===((m>>(n-1-i))&1))) mask|=1<<m;
+      res.push({spec,mask,lits:spec.filter(s=>s!==2).length});
+    }
+    return cubeCache[n]=res;
+  }
+  function minDNF(fn){
+    const imps=cubes().filter(q=>(q.mask&~fn)===0);
+    const primes=imps.filter(q=>!imps.some(p=>p!==q&&(p.mask&q.mask)===q.mask&&p.mask!==q.mask));
+    let best=null,bt=1e9,bl=1e9;
+    (function rec(chosen,cov,t,l){
+      if(t>bt||(t===bt&&l>=bl)) return;
+      const left=fn&~cov;
+      if(!left){bt=t;bl=l;best=chosen.slice();return;}
+      if(t+1>bt) return;
+      let pick=-1,cnt=1e9;
+      for(let m=0;m<(1<<n);m++) if(left>>m&1){const c=primes.filter(p=>p.mask>>m&1).length; if(c<cnt){cnt=c;pick=m;}}
+      for(const p of primes) if(p.mask>>pick&1){chosen.push(p);rec(chosen,cov|p.mask,t+1,l+p.lits);chosen.pop();}
+    })([],0,0,0);
+    return best;
+  }
+  function dnfNode(terms){ return fold('u',terms.map(q=>fold('i',q.spec.map((s,i)=>s===2?null:lit(i,s===1)).filter(Boolean)))); }
+  function cnfNode(fn){
+    const terms=minDNF(FULL()&~fn);
+    return fold('i',terms.map(q=>fold('u',q.spec.map((s,i)=>s===2?null:lit(i,s!==1)).filter(Boolean))));
+  }
+  function bits(x){let c=0;while(x){c+=x&1;x>>>=1;}return c;}
+
+  // ---------- «структурные» формулы: цепочка разностей монотонных частей ----------
+  // Любое множество записывается как S1 ∖ (S2 ∖ (S3 ∖ …)), где каждое Si строится из A, B, C, …
+  // только с помощью ∪ и ∩ (без дополнений). Так получаются формулы вида
+  // «объединение попарных пересечений минус пересечение всех трёх».
+  const monoCache={};
+  function monoData(){
+    if(monoCache[n]) return monoCache[n];
+    const F=FULL(), best=new Map(); // монотонная функция -> кратчайшая формула из ∪, ∩
+    let level=[];
+    for(let i=0;i<n;i++){ best.set(varMask(i),{node:Var(i),leaves:1}); level.push(varMask(i)); }
+    const levels=[null,level];
+    for(let L=2;L<=2*n+4;L++){
+      const cur=[];
+      for(let i=1;i<=L-i;i++) for(const a of levels[i]) for(const b of levels[L-i]){
+        for(const [op,g] of [['u',a|b],['i',a&b]]){
+          if(!best.has(g)){ best.set(g,{node:Bin(op,best.get(a).node,best.get(b).node),leaves:L}); cur.push(g); }
+        }
+      }
+      levels.push(cur);
+    }
+    // для каждой монотонной функции ещё и запись «объединение пересечений» (минимальная монотонная ДНФ)
+    const list=[];
+    for(const [g,v] of best){
+      const terms=[];
+      for(let T=1;T<(1<<n);T++){
+        let mk=F; const vs=[]; for(let i=0;i<n;i++) if(T>>(n-1-i)&1){mk&=varMask(i);vs.push(i);}
+        if((mk&~g)===0) terms.push({T,mk,vs});
+      }
+      const minimal=terms.filter(t=>!terms.some(s=>s!==t&&(s.T&t.T)===s.T));
+      const dnf=fold('u',minimal.map(t=>fold('i',t.vs.map(Var))));
+      list.push({g,short:v.node,shortL:v.leaves,dnf,dnfL:countLeaves(dnf)});
+    }
+    return monoCache[n]={list,byG:new Map(list.map(x=>[x.g,x]))};
+  }
+  const chainMemo={};
+  function chain(fn,style){ // style: 'short' | 'dnf'
+    const key=n+style; const memo=chainMemo[key]||(chainMemo[key]=new Map());
+    const {list,byG}=monoData(), F=FULL();
+    const cost=x=>style==='short'?x.shortL:x.dnfL, nodeOf=x=>style==='short'?x.short:x.dnf;
+    function rec(g,depth,top){
+      const k=g*16+depth*2+(top?1:0);
+      if(memo.has(k)) return memo.get(k);
+      let best=null;
+      const m=byG.get(g);
+      if(m) best={c:cost(m)*10+1,parts:[nodeOf(m)],u:false};
+      if(depth>0){
+        const cands=top?[{g:F,U:true},...list]:list;
+        for(const S of cands){
+          if(S.g===g||(S.g&g)!==g) continue;
+          const r=rec(S.g&~g,depth-1,false); if(!r) continue;
+          const c=(S.U?0:cost(S)*10+1)+r.c;
+          if(!best||c<best.c) best={c,parts:[S.U?null:nodeOf(S),...r.parts]};
+        }
+      }
+      memo.set(k,best); return best;
+    }
+    const r=rec(fn,n,true);
+    return r?r.parts:null; // [S1, S2, S3, ...]; S1 = null означает универсум
+  }
+  function chainNode(parts,useDiff){
+    // S1 ∖ (S2 ∖ (S3 ∖ …)); без разности: S1 ∩ ¬(S2 ∩ ¬(…))
+    let node=parts[parts.length-1];
+    for(let i=parts.length-2;i>=0;i--){
+      const S=parts[i];
+      if(S===null) node=Not(node);
+      else node=useDiff?Bin('d',S,node):Bin('i',S,Not(node));
+    }
+    return node;
+  }
+
+  // ---------- вывод ----------
+  const out=document.getElementById('out');
+  const status=document.getElementById('status');
+  function block(x,main){
+    const tex=render(x,RT,null);
+    return `<div class="f${main?' main':''}"><div class="fl"><div class="expr">${render(x,RH,null)}</div>
+      <button type="button" class="texbtn" data-tex="${esc(tex)}" title="Скопировать код LaTeX">LaTeX</button></div>
+      <code class="texfb" hidden>${esc(tex)}</code></div>`;
+  }
+  function renderOut(){
+    const nodes=[], F=FULL();
+    const sh=useDiff?shortest(f,1):null, sh0=shortest(f,0);
+    if(sh) nodes.push(sh);
+    if(sh0) nodes.push(sh0);
+    if(f!==0&&f!==F){
+      for(const style of ['dnf','short']){
+        const parts=chain(f,style);
+        if(parts&&parts.length>1) nodes.push(chainNode(parts,useDiff));
+      }
+      const dn=dnfNode(minDNF(f));
+      nodes.push(dn, cnfNode(f));
+      if(countLeaves(dn)!==n*bits(f)){
+        const ms=[]; for(let m=(1<<n)-1;m>=0;m--) if(f>>m&1) ms.push(minterm(m));
+        nodes.push(fold('u',ms));
+      }
+    }
+    const seen=new Set(), blocks=[];
+    nodes.forEach(x=>{const t=render(x,RT,null); if(!seen.has(t)){seen.add(t); blocks.push(block(x,blocks.length===0));}});
+    let pre='';
+    if((useDiff&&!sh)||!sh0){
+      pre = ((useDiff&&started[n+':1']==='fail')||started[n+':0']==='fail')
+        ? '<p class="pending">Поиск самой короткой формулы недоступен в этом браузере.</p>'
+        : `<p class="pending">${sh||sh0?'Ищу ещё варианты…':'Ищу самую короткую формулу…'}</p>`;
+    }
+    out.innerHTML=pre+blocks.join('<p class="or">или</p>');
+  }
+  out.addEventListener('click',e=>{
+    const b=e.target.closest('button[data-tex]'); if(!b) return;
+    const done=txt=>{b.textContent=txt; clearTimeout(b._t); b._t=setTimeout(()=>b.textContent='LaTeX',1400);};
+    const fallback=()=>{ // буфер обмена недоступен: показать код и выделить его
+      const c=b.closest('.f').querySelector('.texfb'); c.hidden=false;
+      const r=document.createRange(); r.selectNodeContents(c); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      done('Ctrl+C');
+    };
+    try{ navigator.clipboard.writeText(b.dataset.tex).then(()=>done('Скопировано'),fallback); }catch(err){ fallback(); }
+  });
+  function update(){ paint(); showStatus(); renderOut(); renderChips(); }
+  function paint(){ regEls.forEach((el,m)=>{ el.classList.toggle('on',!!(f>>m&1)); el.classList.toggle('hov',m===hov&&!(f>>m&1)); }); }
+  function showStatus(){
+    if(hov<0){status.innerHTML='Наведите курсор на область, чтобы увидеть её конституенту.';return;}
+    status.innerHTML='Область: <b>'+render(minterm(hov),RH,null)+'</b>'+(f>>hov&1?' (закрашена)':'');
+  }
+  const chips=document.getElementById('chips');
+  function renderChips(){
+    let h='';
+    for(let m=(1<<n)-1;m>=0;m--) h+=`<button type="button" class="chip" data-m="${m}" aria-pressed="${!!(f>>m&1)}">${render(minterm(m),RC,null)}</button>`;
+    chips.innerHTML=h;
+  }
+  chips.addEventListener('click',e=>{const b=e.target.closest('.chip'); if(b){f^=1<<+b.dataset.m; update();}});
+  chips.addEventListener('mouseover',e=>{const b=e.target.closest('.chip'); if(b){hov=+b.dataset.m; paint(); showStatus();}});
+  chips.addEventListener('mouseleave',()=>{hov=-1; paint(); showStatus();});
+  document.getElementById('bClear').onclick=()=>{f=0;update();};
+  document.getElementById('bAll').onclick=()=>{f=FULL();update();};
+  document.getElementById('bInv').onclick=()=>{f=FULL()&~f;update();};
+  for(let i=0;i<4;i++) document.getElementById('n'+i).addEventListener('input',e=>{
+    names[i]=e.target.value.trim()||'ABCD'[i];
+    const t=svg.querySelector(`[data-l="${i}"]`); if(t) t.textContent=names[i];
+    update();
+  });
+  document.getElementById('nU').addEventListener('input',e=>{uName=e.target.value.trim()||'U'; const t=svg.querySelector('[data-l="U"]'); if(t) t.textContent=uName; update();});
+
+  function setMode(k){
+    if(state[n]!==null) state[n]=f;
+    n=k;
+    if(state[n]===null){
+      state[n]= n===3 ? ((varMask(0)|varMask(1)) & (FULL()&~varMask(2)))
+                      : ((varMask(0)&varMask(1)) | (varMask(2)&varMask(3)));
+    }
+    f=state[n]; hov=-1;
+    document.getElementById('m3').setAttribute('aria-pressed',n===3);
+    document.getElementById('m4').setAttribute('aria-pressed',n===4);
+    document.getElementById('lab3').hidden = n!==4;
+    document.getElementById('left').classList.toggle('n4',n===4);
+    buildSvg();
+    if(useDiff) startSearch(n,1);
+    startSearch(n,0);
+    update();
+  }
+  document.getElementById('bDiff').onclick=e=>{
+    useDiff=!useDiff; e.currentTarget.setAttribute('aria-pressed',useDiff);
+    if(useDiff) startSearch(n,1);
+    renderOut();
+  };
+  document.getElementById('m3').onclick=()=>setMode(3);
+  document.getElementById('m4').onclick=()=>setMode(4);
+  setMode(3);
+})();
+</script>
+
+</body></html>
