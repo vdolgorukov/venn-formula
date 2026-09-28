@@ -33,6 +33,8 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
   const W=frame.contentWindow, D=frame.contentDocument;
   const $=id=>D.getElementById(id);
   const click=el=>el.click();
+  // формула из поля вычисляется через «Решить как задачу» и «Показать ответ»
+  const paintVia=()=>{ click($('bAsTask')); if(!$('ferr').textContent) click($('bShow')); };
   let n=3;
 
   // ---- независимая модель ----
@@ -202,21 +204,28 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     }
     // «Новая задача»
     if(!check($('lvlRow').hidden,'во вкладке «диаграмма → формула» уровней нет')) bad++;
-    const ml3=minLeaves(3,true);
-    for(let i=0;i<40;i++){
-      $('fin').value='x'; click($('bFNew'));
-      const t=chipMask();
-      if(!check(t!==0&&t!==255,'«Новая задача» дала пустую или полную закраску')) bad++;
-      if(!check(ml3[t]>=3,`«Новая задача» слишком простая: кратчайшая формула ${ml3[t]} буквы`)) bad++;
-      if(!check($('fin').value===''&&$('ansBox').hidden,`«Новая задача» не очистила поле или не скрыла ответы`)) bad++;
+    // «Новая задача» перебирает все закраски, кроме пустой и полной, без повторов
+    for(const k of [2,3]){
+      await setN(k);
+      const F=FULLn(k), seen=new Set();
+      for(let i=0;i<F-1;i++){
+        $('fin').value='x'; click($('bFNew'));
+        const t=chipMask();
+        if(!check(t!==0&&t!==F,'«Новая задача» дала пустую или полную закраску')) bad++;
+        if(!check(!seen.has(t),`n=${k}: «Новая задача» повторила закраску ${t} раньше, чем показала все`)) bad++;
+        seen.add(t);
+        if(!check($('fin').value===''&&$('ansBox').hidden,`«Новая задача» не очистила поле или не скрыла ответы`)) bad++;
+      }
+      check(seen.size===F-1,`n=${k}: показано ${seen.size} закрасок из ${F-1}`);
     }
+    await setN(3);
     typeF('A+'); click($('bFCheck'));
     if(!check($('ferr').textContent!==''&&$('fmsg').className==='msg'||$('ferr').textContent!=='','ошибка в формуле не показана')) bad++;
     typeF(''); $('ferr').textContent=''; click($('bFCheck'));
     if(!check($('ferr').textContent!=='','пустая формула не вызвала подсказку')) bad++;
     const det=D.querySelector('details.settings');
     if(!check(det&&!det.open&&det.contains($('n0'))&&det.contains($('nU')),'имена множеств спрятаны в закрытые «Настройки»')) bad++;
-    log(`${bad?'✗':'✓'} своя формула в режиме «диаграмма → формула»: 60 закрасок с верным и неверным ответом (красным отмечены ровно расхождения), варианты скрыты до проверки, уровней нет, «Новая задача» — средний уровень, имена в «Настройках»`,bad?'bad':'ok');
+    log(`${bad?'✗':'✓'} своя формула в режиме «диаграмма → формула»: 60 закрасок с верным и неверным ответом (красным отмечены ровно расхождения), варианты скрыты до проверки, уровней нет, «Новая задача» перебирает все закраски без повторов, имена в «Настройках»`,bad?'bad':'ok');
   }
 
   // ---- 2. щелчки по диаграмме попадают в нужную область ----
@@ -323,7 +332,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
   let bad=0;
   for(const [src,want] of cases){
     const fin=$('fin'); fin.value=src; fin.dispatchEvent(new W.Event('input'));
-    click($('bPaint'));
+    paintVia();
     if(!check($('ferr').textContent==='',`ввод «${src}»: ошибка «${$('ferr').textContent}»`)){bad++;continue;}
     if(!check(chipMask()===want,`ввод «${src}»: закрашено ${chipMask()}, верно ${want}`)) bad++;
     click($('bAsTask'));
@@ -334,7 +343,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
   const errs=['A+','(A','A)','AB','A+*B','E','',' '];
   for(const src of errs){
     const fin=$('fin'); fin.value=src; fin.dispatchEvent(new W.Event('input'));
-    const before=chipMask(); click($('bPaint'));
+    const before=chipMask(); paintVia();
     if(!check($('ferr').textContent!=='',`ввод «${src}» должен дать ошибку`)) bad++;
     if(!check(chipMask()===before,`ошибочный ввод «${src}» изменил закраску`)) bad++;
   }
@@ -413,7 +422,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
         [bar('A')+'∩B',(F&~A)&B],[bar('A∩B'),F&~(A&B)],[bar('A∪B'),F&~(A|B)],['A∖'+bar('B∖C'),A&B&~C&F],
         [bar('A∖'+bar('B')),F&~(A&B)],['C∩'+bar('(A∪B)'),C&~(A|B)&F]]){
       fin.value=src; fin.dispatchEvent(new W.Event('input'));
-      click($('tR')); click($('bPaint'));
+      click($('tR')); paintVia();
       if(!check(chipMask()===want,`«${src}» закрасил ${chipMask()}, верно ${want}`)) bad++;
       click($('tF'));
     }
@@ -497,7 +506,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     const stats={};
     const addStat=(key,ok)=>{ stats[key]=stats[key]||[0,0]; stats[key][ok?0:1]++; };
     function paintAndCheck(want,label,k,alsoTask){
-      click(g('bPaint'));
+      paintVia();
       let ok=check(g('ferr').textContent==='',`${label}: ошибка «${g('ferr').textContent}»`);
       ok=check(chipMask()===want,`${label}: закрашено ${chipMask()}, верно ${want}`)&&ok;
       if(alsoTask){
@@ -557,7 +566,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
         const len=1+rnd(9); let str=''; for(let j=0;j<len;j++) str+=pick(AL);
         let ref=null; try{ ref=refParse(str,k); }catch(e){ ref=null; }
         g('fin').value=str; const before=chipMask();
-        click(g('bPaint'));
+        paintVia();
         const err=g('ferr').textContent!=='';
         let ok;
         if(ref===null) ok=check(err&&chipMask()===before,`n=${k} «${str}»: должна быть ошибка, а закрашено ${chipMask()}`);

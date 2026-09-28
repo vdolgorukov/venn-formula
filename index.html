@@ -101,8 +101,7 @@ button.primary:hover{filter:brightness(1.08)}
 .keys button{font-family:var(--math);font-size:17px;min-width:38px;height:34px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center}
 .keys svg.op{width:.62em;height:.75em}
 .keys .brk{flex-basis:100%;height:0}
-.preview{font-size:22px}
-.preview:empty,.ferr:empty,.msg:empty{display:none}
+.ferr:empty,.msg:empty{display:none}
 .ferr{margin:0;font-size:13px;color:var(--bad)}
 .help{font-size:12.5px;color:var(--muted);margin:0;line-height:1.55}
 .help code{font-family:var(--mono);font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
@@ -205,10 +204,8 @@ button.report:hover{color:var(--ink)}
         <label class="eyebrow" for="finIn" id="finLabel">Формула для закрашенной части</label>
         <div class="fed empty" id="fin" data-placeholder="например (A∪B)∖C"><input class="fed-in" id="finIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="fed-view" aria-hidden="true"></div></div>
         <div class="row keys" id="keys"></div>
-        <div class="expr preview" id="prev"></div>
         <p class="ferr" id="ferr"></p>
         <div class="row" id="revBtns" hidden>
-          <button type="button" id="bPaint">Закрасить</button>
           <button type="button" id="bAsTask">Решить как задачу</button>
         </div>
         <div class="row" id="fwdBtns">
@@ -217,7 +214,7 @@ button.report:hover{color:var(--ink)}
           <button type="button" id="bFNew">Новая задача</button>
         </div>
         <p class="msg" id="fmsg" aria-live="polite"></p>
-        <details class="settings hint"><summary>Как вводить формулу</summary><p class="help">Кнопки вставляют символы. С клавиатуры можно печатать <code>+</code>, <code>*</code>, <code>-</code>: они сами превращаются в ∪, ∩, ∖. Дополнение: выделите часть формулы мышью или Shift+стрелками и нажмите кнопку с чертой — она окажется под чертой; без выделения черта ставится над множеством или скобкой перед курсором. Штрих <code>A'</code>, <code>(A∪B)'</code> тоже превращается в черту, работает и <code>~</code> перед множеством. Понимается и LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность — слева направо; как формула понята, видно в строке под полем.</p></details>
+        <details class="settings hint"><summary>Как вводить формулу</summary><p class="help">Кнопки вставляют символы. С клавиатуры можно печатать <code>+</code>, <code>*</code>, <code>-</code>: они сами превращаются в ∪, ∩, ∖. Дополнение: выделите часть формулы мышью или Shift+стрелками и нажмите кнопку с чертой — она окажется под чертой; без выделения черта ставится над множеством или скобкой перед курсором. Штрих <code>A'</code>, <code>(A∪B)'</code> тоже превращается в черту, работает и <code>~</code> перед множеством. Понимается и LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность — слева направо.</p></details>
       </div>
       <div id="ansBox" hidden>
         <p class="eyebrow ans-h">Правильные варианты</p>
@@ -666,7 +663,7 @@ button.report:hover{color:var(--ink)}
        hard:  {L:[6,7],vars:4,ops:3,cn:.3, short:5}}
   };
   let level='medium';
-  // во вкладке «диаграмма → формула» уровень не выбирается: там задачи среднего уровня
+  // уровень выбирается только во вкладке «формула → диаграмма»
   function curLevel(){ return LEVELS[n][n===2?'easy':taskMode?level:'medium']; }
   function syncLvl(){ document.getElementById('lvlRow').hidden = n===2||!taskMode; }
   function newTask(){ setTask(genTask(),false); }
@@ -749,15 +746,15 @@ button.report:hover{color:var(--ink)}
   // Поле рисует её с настоящей чертой сверху; клавиатура работает через скрытое поле finIn,
   // курсор cp и начало выделения an ведутся здесь.
   const edEl=document.getElementById('fin'), edIn=document.getElementById('finIn'), edView=edEl.querySelector('.fed-view');
-  const fin=edEl, prev=document.getElementById('prev'), ferr=document.getElementById('ferr');
+  const fin=edEl, ferr=document.getElementById('ferr');
   const OB='⟦', CB='⟧', isBr=c=>c===OB||c===CB;
   let mv='', cp=0, an=0, parsed=null;
   const selLo=()=>Math.min(an,cp), selHi=()=>Math.max(an,cp);
   const edLatex=s=>s.split(OB).join('\\overline{').split(CB).join('}');
   function parseInput(){
-    parsed=null; ferr.textContent=''; prev.innerHTML='';
+    parsed=null; ferr.textContent='';
     if(!mv.trim()) return;
-    try{ parsed=parseFormula(edLatex(mv)); if(parsed) prev.innerHTML=render(parsed,RHk,null); }
+    try{ parsed=parseFormula(edLatex(mv)); }
     catch(e){ ferr.textContent=e.message+(e.pos!=null&&!mv.includes(OB)?` (позиция ${e.pos+1})`:''); }
   }
   // [начало, конец) операнда, который заканчивается перед позицией e: множество, скобка или часть под чертой
@@ -869,7 +866,7 @@ button.report:hover{color:var(--ink)}
   edIn.addEventListener('cut',e=>{ if(copySel(e)){ deleteRange(selLo(),selHi()); edChanged(); } });
   edIn.addEventListener('keydown',e=>{
     const k=e.key, sh=e.shiftKey, mod=e.ctrlKey||e.metaKey, len=mv.length;
-    if(k==='Enter'){ e.preventDefault(); document.getElementById(taskMode?'bPaint':'bFCheck').click(); return; }
+    if(k==='Enter'){ e.preventDefault(); document.getElementById(taskMode?'bAsTask':'bFCheck').click(); return; }
     if(k==='ArrowLeft'||k==='ArrowRight'){
       if(selHi()>selLo()&&!sh) cp=k==='ArrowLeft'?selLo():selHi();
       else if(k==='ArrowLeft'){ let j=cp-1; while(j>=0&&isBr(mv[j])) j--; cp=Math.max(j,0); }
@@ -912,14 +909,22 @@ button.report:hover{color:var(--ink)}
     }
   };
   document.getElementById('bFShow').onclick=()=>{ revealed=true; syncAns(); renderOut(); };
+  // «Новая задача»: случайная закраска из всех возможных, кроме пустой и полной.
+  // Закраски берутся из перетасованной колоды — повтор только после того, как показаны все.
+  const decks={};
+  function nextShading(){
+    const F=FULL();
+    let d=decks[n];
+    if(!d||!d.length){
+      d=decks[n]=[]; for(let m=1;m<F;m++) d.push(m);
+      for(let i=d.length-1;i>0;i--){ const j=rnd(i+1); [d[i],d[j]]=[d[j],d[i]]; }
+      if(d.length>1&&d[d.length-1]===f) [d[0],d[d.length-1]]=[d[d.length-1],d[0]];
+    }
+    return d.pop();
+  }
   document.getElementById('bFNew').onclick=()=>{
-    const t=genTask(); if(!t) return;
-    f=evalNode(t); fin.value=''; update();
+    f=nextShading(); fin.value=''; update();
     fsay('Запишите формулу для закрашенной части и нажмите «Проверить».');
-  };
-  document.getElementById('bPaint').onclick=()=>{
-    if(!parsed){ if(!ferr.textContent) ferr.textContent='Сначала введите формулу.'; return; }
-    f=evalNode(parsed); update(); say('Закрашено по введённой формуле.');
   };
   document.getElementById('bAsTask').onclick=()=>{
     if(!parsed){ if(!ferr.textContent) ferr.textContent='Сначала введите формулу.'; return; }
