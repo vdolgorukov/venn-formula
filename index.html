@@ -210,7 +210,7 @@ button.report:hover{color:var(--ink)}
         </div>
         <div class="row" id="fwdBtns">
           <button type="button" class="primary" id="bFCheck">Проверить</button>
-          <button type="button" id="bFShow">Показать ответы</button>
+          <button type="button" id="bFShow" aria-expanded="false" aria-controls="ansBox">▸ Показать ответы</button>
           <button type="button" id="bFNew">Новая задача</button>
         </div>
         <p class="msg" id="fmsg" aria-live="polite"></p>
@@ -316,6 +316,9 @@ button.report:hover{color:var(--ink)}
     neg:s=>'<span class="ov">'+s+'</span>', op:o=>OPS[o], paren:s=>'('+s+')'};
   const RC=Object.assign({},RH,{op:o=>OPSc[o]});
   const RHk=Object.assign({},RH,{keep:true});   // без перестановки операндов: формула как её ввели
+  // задача пишется без пробелов между символами, как в поле ввода
+  const OPSt={u:opSvg(PU,'∪',''), i:opSvg(PI_,'∩',''), d:opSvg(PD,'∖','')};
+  const RT0=Object.assign({},RH,{op:o=>OPSt[o]}), RT0k=Object.assign({},RT0,{keep:true});
   const TEXOP={u:' \\cup ', i:' \\cap ', d:' \\setminus '};
   const RT={ name:i=>texName(names[i]), u:()=>texName(uName), empty:()=>'\\varnothing',
     neg:s=>'\\overline{'+s+'}', op:o=>TEXOP[o], paren:s=>'('+s+')'};
@@ -548,7 +551,11 @@ button.report:hover{color:var(--ink)}
   let revealed=false, lastF=-1;
   const ansBox=document.getElementById('ansBox'), fmsg=document.getElementById('fmsg');
   function fsay(text,cls){ fmsg.textContent=text; fmsg.className='msg'+(cls?' '+cls:''); }
-  function syncAns(){ const show=!taskMode&&revealed; ansBox.hidden=!show; document.getElementById('fnote').hidden=!show; }
+  function syncAns(){
+    const show=!taskMode&&revealed, b=document.getElementById('bFShow');
+    ansBox.hidden=!show; document.getElementById('fnote').hidden=!show;
+    b.textContent=show?'▾ Скрыть ответы':'▸ Показать ответы'; b.setAttribute('aria-expanded',show);
+  }
   function update(){
     const changed=f!==lastF; lastF=f;
     errMask=0; paint(); showStatus(); renderChips(); renderKeys(); parseInput();
@@ -721,7 +728,7 @@ button.report:hover{color:var(--ink)}
   function renderRev(){
     if(!task) return;
     const tex=render(task,taskKeep?RTk:RT,null);
-    document.getElementById('taskExpr').innerHTML=render(task,taskKeep?RHk:RH,null);
+    document.getElementById('taskExpr').innerHTML=render(task,taskKeep?RT0k:RT0,null);
     document.getElementById('taskTex').dataset.tex=tex;
     document.getElementById('taskFb').textContent=tex;
     renderKeys(); parseInput();
@@ -908,7 +915,8 @@ button.report:hover{color:var(--ink)}
       fsay('Неверно: '+parts.join(', ')+'. Расхождения отмечены на диаграмме красным, правильные варианты ниже.','bad');
     }
   };
-  document.getElementById('bFShow').onclick=()=>{ revealed=true; syncAns(); renderOut(); };
+  // «Показать ответы» раскрывает и сворачивает правильные варианты
+  document.getElementById('bFShow').onclick=()=>{ revealed=!revealed; syncAns(); if(revealed) renderOut(); };
   // «Новая задача»: случайная закраска из всех возможных, кроме пустой и полной.
   // Закраски берутся из перетасованной колоды — повтор только после того, как показаны все.
   const decks={};
