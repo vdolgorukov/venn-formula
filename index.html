@@ -100,6 +100,11 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
 .texbtn:hover{color:var(--ink)}
 .texfb{flex:1;min-width:0;font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 8px;overflow-wrap:anywhere;user-select:all}
 .note{font-size:13px;color:var(--muted);margin:0;max-width:70ch}
+.lvl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.lvl .seg button{padding:5px 12px;font-size:13px}
+.foot{display:flex;justify-content:flex-end}
+button.report{font-size:12px;padding:3px 9px;color:var(--muted);background:transparent}
+button.report:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -115,6 +120,7 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
         <button type="button" id="tR" aria-pressed="false">Формула → диаграмма</button>
       </div>
       <div class="seg" role="group" aria-label="Число множеств">
+        <button type="button" id="m2" aria-pressed="false">2 множества</button>
         <button type="button" id="m3" aria-pressed="true">3 множества</button>
         <button type="button" id="m4" aria-pressed="false">4 множества</button>
       </div>
@@ -136,7 +142,7 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
         <span>Имена:</span>
         <label>1 <input id="n0" value="A" maxlength="3" aria-label="Имя первого множества"></label>
         <label>2 <input id="n1" value="B" maxlength="3" aria-label="Имя второго множества"></label>
-        <label>3 <input id="n2" value="C" maxlength="3" aria-label="Имя третьего множества"></label>
+        <label id="lab2">3 <input id="n2" value="C" maxlength="3" aria-label="Имя третьего множества"></label>
         <label id="lab3" hidden>4 <input id="n3" value="D" maxlength="3" aria-label="Имя четвёртого множества"></label>
         <label>универсум <input id="nU" value="U" maxlength="3" aria-label="Имя универсума"></label>
       </div>
@@ -146,6 +152,14 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
       <div class="tools"><div class="seg"><button type="button" id="bDiff" aria-pressed="true">Использовать разность</button></div></div>
       <div id="out"></div>
       <div id="rev" class="rev" hidden>
+        <div class="lvl" id="lvlRow">
+          <span class="eyebrow">Уровень</span>
+          <div class="seg" role="group" aria-label="Уровень задачи" id="lvl">
+            <button type="button" data-lvl="easy" aria-pressed="false">Лёгкий</button>
+            <button type="button" data-lvl="medium" aria-pressed="true">Средний</button>
+            <button type="button" data-lvl="hard" aria-pressed="false">Сложный</button>
+          </div>
+        </div>
         <div class="f">
           <p class="eyebrow">Задача</p>
           <div class="fl"><div class="expr task-expr" id="taskExpr"></div>
@@ -175,12 +189,16 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
   </div>
 
   <p class="note" id="fnote">Варианты по порядку: самая короткая формула по числу вхождений букв (полный перебор); если включена разность, сначала с ней, потом без неё. Затем «структурная» запись: из множества, построенного только с помощью ∪ и ∩, вычитается другое такое же, из него третье и т. д. (например, объединение попарных пересечений минус пересечение всех трёх); без разности вычитание записывается через пересечение с дополнением. Дальше минимальная ДНФ, минимальная КНФ и объединение конституент. Совпадающие варианты не повторяются, скобки при смешанных операциях ставятся всегда. Для четырёх множеств перебор занимает несколько секунд после первого переключения.</p>
+  <footer class="foot"><button type="button" class="report" id="bReport">Сообщить об ошибке</button></footer>
 </div>
 
 <script>
 (function(){
   // ---------- геометрия ----------
   const MODES={
+    2:{vb:'0 0 420 300', U:[8,8,404,284], uLbl:[20,282],
+       shapes:[{cx:165,cy:150,r:105},{cx:255,cy:150,r:105}],
+       lbls:[[50,52],[370,52]]},
     3:{vb:'0 0 420 340', U:[8,8,404,324], uLbl:[20,322],
        shapes:[{cx:160,cy:138,r:95},{cx:260,cy:138,r:95},{cx:210,cy:224,r:95}],
        lbls:[[52,58],[356,58],[318,316]]},
@@ -192,7 +210,7 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
   const NS='http://www.w3.org/2000/svg';
   const svg=document.getElementById('venn');
   let n=3, names=['A','B','C','D'], uName='U';
-  const state={3:null,4:null};
+  const state={2:null,3:null,4:null};
   let f=0, regEls=[], hov=-1, useDiff=true;
   let taskMode=false, task=null, taskN=0, errMask=0;
 
@@ -229,7 +247,7 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
     G.lbls.forEach((p,i)=>d+=`<text class="lbl" data-l="${i}" x="${p[0]}" y="${p[1]}" text-anchor="middle">${esc(names[i])}</text>`);
     d+=`<text class="lbl" data-l="U" x="${G.uLbl[0]}" y="${G.uLbl[1]}">${esc(uName)}</text>`;
     svg.setAttribute('viewBox',G.vb);
-    svg.setAttribute('aria-label',`Диаграмма Венна для ${n===3?'трёх':'четырёх'} множеств`);
+    svg.setAttribute('aria-label',`Диаграмма Венна для ${['','','двух','трёх','четырёх'][n]} множеств`);
     svg.innerHTML=d;
     regEls=[...svg.querySelectorAll('.reg')].sort((a,b)=>a.dataset.m-b.dataset.m);
   }
@@ -585,25 +603,43 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
   }
   // случайная формула для тренажёра
   const rnd=k=>Math.floor(Math.random()*k);
-  function randTree(L){
+  function randTree(L,cn){
     if(L===1){ const i=rnd(n); return Math.random()<0.3?Not(Var(i)):Var(i); }
     const k=1+rnd(L-1), ops=useDiff?['u','i','d','u','i']:['u','i'];
-    let x=Bin(ops[rnd(ops.length)],randTree(k),randTree(L-k));
-    if(Math.random()<0.15) x=Not(x);
+    let x=Bin(ops[rnd(ops.length)],randTree(k,cn),randTree(L-k,cn));
+    if(Math.random()<cn) x=Not(x);
     return x;
   }
+  // уровни: L — число букв в формуле, vars — сколько разных множеств, ops — сколько разных операций,
+  // cn — вероятность дополнения над составным выражением, short — минимум букв в самой короткой равносильной формуле
+  const LEVELS={
+    2:{easy:{L:[2,3],vars:2,ops:1,cn:.15,short:2}},
+    3:{easy:  {L:[2,3],vars:2,ops:1,cn:0,  short:2},
+       medium:{L:[3,4],vars:3,ops:2,cn:.15,short:3},
+       hard:  {L:[5,6],vars:3,ops:3,cn:.3, short:4}},
+    4:{easy:  {L:[3,4],vars:3,ops:1,cn:0,  short:3},
+       medium:{L:[4,5],vars:4,ops:2,cn:.15,short:4},
+       hard:  {L:[6,7],vars:4,ops:3,cn:.3, short:5}}
+  };
+  let level='medium';
+  function curLevel(){ return LEVELS[n][n===2?'easy':level]; }
   function newTask(){
-    const F=FULL(); let t=null;
-    for(let tries=0;tries<500;tries++){
-      const L=n===3?3+rnd(2):3+rnd(3);
-      const c=randTree(L), fn=evalNode(c);
-      if(fn===0||fn===F) continue;
-      if([0,1,2,3].slice(0,n).some(i=>fn===varMask(i)||fn===(F&~varMask(i)))) continue;
-      if(new Set(varsOf(c)).size<Math.min(n,3)) continue;
-      if(!niceTree(c)||!irredundant(c)) continue;
-      const ops=new Set(); (function walk(y){ if(y.t==='b'){ops.add(y.op);walk(y.l);walk(y.r);} else if(y.t==='n'){ if(y.x.t!=='v') ops.add('n'); walk(y.x);} })(c);
-      if(ops.size<2) continue;
-      t=c; break;
+    const F=FULL(), lv=curLevel(), tab=tables[n+':'+(useDiff?1:0)];
+    let t=null;
+    // если за много попыток подходящая формула не нашлась, требования постепенно ослабляются
+    for(let relax=0;relax<3&&!t;relax++){
+      for(let tries=0;tries<3000;tries++){
+        const L=lv.L[0]+rnd(lv.L[1]-lv.L[0]+1);
+        const c=randTree(L,lv.cn), fn=evalNode(c);
+        if(fn===0||fn===F) continue;
+        if([0,1,2,3].slice(0,n).some(i=>fn===varMask(i)||fn===(F&~varMask(i)))) continue;
+        if(new Set(varsOf(c)).size<lv.vars) continue;
+        if(!niceTree(c)||!irredundant(c)) continue;
+        const ops=new Set(); (function walk(y){ if(y.t==='b'){ops.add(y.op);walk(y.l);walk(y.r);} else if(y.t==='n'){ if(y.x.t!=='v') ops.add('n'); walk(y.x);} })(c);
+        if(ops.size<lv.ops-relax) continue;
+        if(!relax&&tab&&tab.L[fn]&&tab.L[fn]<lv.short) continue;
+        t=c; break;
+      }
     }
     setTask(t,false);
   }
@@ -725,13 +761,17 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
     if(state[n]!==null) state[n]=f;
     n=k;
     if(state[n]===null){
-      state[n]= n===3 ? ((varMask(0)|varMask(1)) & (FULL()&~varMask(2)))
+      state[n]= n===2 ? (varMask(0)&~varMask(1)&FULL())
+              : n===3 ? ((varMask(0)|varMask(1)) & (FULL()&~varMask(2)))
                       : ((varMask(0)&varMask(1)) | (varMask(2)&varMask(3)));
     }
     f=state[n]; hov=-1;
+    document.getElementById('m2').setAttribute('aria-pressed',n===2);
     document.getElementById('m3').setAttribute('aria-pressed',n===3);
     document.getElementById('m4').setAttribute('aria-pressed',n===4);
     document.getElementById('lab3').hidden = n!==4;
+    document.getElementById('lab2').hidden = n===2;
+    document.getElementById('lvlRow').hidden = n===2;
     document.getElementById('left').classList.toggle('n4',n===4);
     buildSvg();
     if(useDiff) startSearch(n,1);
@@ -744,6 +784,35 @@ svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
     if(useDiff) startSearch(n,1);
     if(taskMode) renderRev(); else renderOut();
   };
+  document.getElementById('lvl').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-lvl]'); if(!b) return;
+    level=b.dataset.lvl;
+    document.querySelectorAll('#lvl button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+    if(taskMode) newTask();
+  });
+  // сообщение об ошибке: открывает новое обращение на GitHub с описанием текущего состояния
+  document.getElementById('bReport').onclick=()=>{
+    const cons=[]; for(let m=(1<<n)-1;m>=0;m--) if(f>>m&1) cons.push(render(minterm(m),RT,null));
+    const lines=[
+      'Опишите, что пошло не так:','','','---',
+      'Режим: '+(taskMode?'формула → диаграмма':'диаграмма → формула'),
+      'Множеств: '+n+(taskMode&&n>2?', уровень: '+level:'')+', разность: '+(useDiff?'да':'нет'),
+      'Имена: '+names.slice(0,n).join(', ')+'; универсум: '+uName,
+      'Закрашено: '+(cons.length?cons.join(' ∪ '):'ничего'),
+    ];
+    if(taskMode){
+      if(task) lines.push('Задача: '+render(task,taskKeep?RTk:RT,null));
+      if(fin.value.trim()) lines.push('Введено: '+fin.value);
+      if(msg.textContent) lines.push('Сообщение: '+msg.textContent);
+    } else {
+      const shown=[...out.querySelectorAll('button[data-tex]')].map(b=>b.dataset.tex);
+      if(shown.length) lines.push('Показанные формулы:',...shown.map(x=>'  '+x));
+    }
+    lines.push('Браузер: '+navigator.userAgent);
+    const url='https://github.com/vdolgorukov/venn-formula/issues/new?title='+encodeURIComponent('Ошибка в тренажёре')+'&body='+encodeURIComponent(lines.join('\n'));
+    window.open(url,'_blank','noopener');
+  };
+  document.getElementById('m2').onclick=()=>setMode(2);
   document.getElementById('m3').onclick=()=>setMode(3);
   document.getElementById('m4').onclick=()=>setMode(4);
   setMode(3);

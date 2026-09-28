@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тесты тренажёра Венна</title>
+<style>
+:root{--bg:#F2F4F8;--ink:#1B2233;--muted:#596378;--good:#1E7A46;--bad:#B42318}
+@media (prefers-color-scheme: dark){:root{--bg:#10141C;--ink:#E3E7EF;--muted:#98A2B5;--good:#5CC98A;--bad:#FF8A7A}}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,sans-serif;margin:0;padding:20px 16px}
+h1{font-size:20px;margin:0 0 8px}
+#sum{font-weight:600;margin:8px 0}
+#log{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{color:var(--good)} .bad{color:var(--bad)} .muted{color:var(--muted)}
+iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-top:16px}
+</style>
+</head>
+<body>
+<h1>Тесты тренажёра «Формула по диаграмме Венна»</h1>
+<p class="muted">Страница загружает тренажёр во фрейме и проверяет его через интерфейс. Все формулы разбираются и вычисляются здесь заново, независимо от кода тренажёра.</p>
+<div id="sum">Выполняется…</div>
+<div id="log"></div>
+<iframe id="app" src="../index.html"></iframe>
+<script>
+(async function(){
+  const logEl=document.getElementById('log'), sumEl=document.getElementById('sum');
+  let pass=0, fail=0; const failures=[];
+  function log(t,cls){ const d=document.createElement('div'); if(cls) d.className=cls; d.textContent=t; logEl.appendChild(d); }
+  function check(cond,name){ if(cond) pass++; else { fail++; if(failures.length<200) failures.push(name); log('✗ '+name,'bad'); } return cond; }
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const frame=document.getElementById('app');
+  await new Promise(r=>{ if(frame.contentDocument&&frame.contentDocument.readyState==='complete'&&frame.contentDocument.getElementById('venn')) r(); else frame.onload=r; });
+  const W=frame.contentWindow, D=frame.contentDocument;
+  const $=id=>D.getElementById(id);
+  const click=el=>el.click();
+  let n=3;
+
+  // ---- независимая модель ----
+  const NAMES=['A','B','C','D'];
+  const FULLn=k=>(1<<(1<<k))-1;
+  function varMaskN(k,i){ let v=0; for(let m=0;m<(1<<k);m++) if((m>>(k-1-i))&1) v|=1<<m; return v; }
+  // строгий разбор LaTeX, который выдаёт тренажёр: смешение разных операций без скобок и цепочка ∖ без скобок — ошибка
+  function parseTex(s,k){
+    const toks=[]; let i=0;
+    while(i<s.length){
+      const c=s[i];
+      if(c===' '){i++;continue;}
+      if(c==='\\'){
+        const m=/^[A-Za-z]+/.exec(s.slice(i+1))[0]; i+=1+m.length;
+        if(m==='cup') toks.push('u'); else if(m==='cap') toks.push('i'); else if(m==='setminus') toks.push('d');
+        else if(m==='overline') toks.push('ov'); else if(m==='varnothing') toks.push('E');
+        else if(m==='mathit'){ const j=s.indexOf('}',i); const nm=s.slice(i+1,j); i=j+1; toks.push({nm}); }
+        else throw new Error('неизвестная команда \\'+m);
+        continue;
+      }
+      if('(){}'.includes(c)){toks.push(c);i++;continue;}
+      if(/[A-Za-z]/.test(c)){toks.push({nm:c});i++;continue;}
+      throw new Error('символ '+c);
+    }
+    let p=0;
+    function expr(){
+      const parts=[term()]; let op=null;
+      while(p<toks.length&&['u','i','d'].includes(toks[p])){
+        const o=toks[p++];
+        if(op&&op!==o) throw new Error('смешаны операции без скобок: '+s);
+        if(op==='d') throw new Error('цепочка разностей без скобок: '+s);
+        op=o; parts.push(term());
+      }
+      return parts.length===1?parts[0]:{op,parts};
+    }
+    function term(){
+      const t=toks[p++];
+      if(t==='ov'){ if(toks[p++]!=='{') throw new Error('ожидалась {'); const x=expr(); if(toks[p++]!=='}') throw new Error('ожидалась }'); return {neg:x}; }
+      if(t==='('){ const x=expr(); if(toks[p++]!==')') throw new Error('ожидалась )'); return x; }
+      if(t==='E') return {c:0};
+      if(t&&t.nm){ if(t.nm==='U') return {c:1}; const i=NAMES.indexOf(t.nm); if(i<0||i>=k) throw new Error('имя '+t.nm); return {v:i}; }
+      throw new Error('неожиданный токен '+JSON.stringify(t)+' в '+s);
+    }
+    const x=expr(); if(p!==toks.length) throw new Error('лишние токены в '+s); return x;
+  }
+  function evalT(x,k){
+    const F=FULLn(k);
+    if('v' in x) return varMaskN(k,x.v);
+    if('c' in x) return x.c?F:0;
+    if(x.neg) return F&~evalT(x.neg,k);
+    const vs=x.parts.map(y=>evalT(y,k));
+    if(x.op==='u') return vs.reduce((a,b)=>a|b);
+    if(x.op==='i') return vs.reduce((a,b)=>a&b);
+    return vs[0]&~vs[1]&F;
+  }
+  function leaves(x){ if('v' in x||'c' in x) return 1; if(x.neg) return leaves(x.neg); return x.parts.reduce((s,y)=>s+leaves(y),0); }
+  function varsUsed(x,acc=new Set()){ if('v' in x) acc.add(x.v); else if(x.neg) varsUsed(x.neg,acc); else if(x.parts) x.parts.forEach(y=>varsUsed(y,acc)); return acc; }
+  // минимальное число букв для каждой функции (независимый перебор; дополнение составного выражения букв не добавляет)
+  function minLeaves(k,diff){
+    const S=1<<(1<<k), F=S-1, best=new Uint8Array(S), levels=[[],[]];
+    let found=0;
+    const add=(g,L,arr)=>{ if(!best[g]){best[g]=L;arr.push(g);found++;} };
+    for(let i=0;i<k;i++){ add(varMaskN(k,i),1,levels[1]); add(F&~varMaskN(k,i),1,levels[1]); }
+    for(let L=2;found<S;L++){
+      const cur=[];
+      for(let a=1;a<L;a++) for(const x of levels[a]) for(const y of levels[L-a]){
+        add(x|y,L,cur); add(x&y,L,cur); if(diff) add(x&~y&F,L,cur);
+      }
+      for(let j=0;j<cur.length;j++) add(F&~cur[j],L,cur);
+      levels.push(cur);
+    }
+    return best;
+  }
+
+  // ---- работа с интерфейсом ----
+  const chipMask=()=>{ let f=0; D.querySelectorAll('#chips .chip').forEach(b=>{ if(b.getAttribute('aria-pressed')==='true') f|=1<<+b.dataset.m; }); return f; };
+  function toggle(m){ click(D.querySelector(`#chips .chip[data-m="${m}"]`)); }
+  function setMask(t){ const cur=chipMask(); for(let m=0;m<(1<<n);m++) if(((cur^t)>>m)&1) toggle(m); }
+  async function setN(k){ click($('m'+k)); n=k; }
+  async function waitSearch(){ for(let i=0;i<600;i++){ if(!D.querySelector('#out .pending')) return true; await sleep(100);} return false; }
+  const diffOn=()=>$('bDiff').getAttribute('aria-pressed')==='true';
+  async function setDiff(on){ if(diffOn()!==on) click($('bDiff')); }
+  function shownTex(){ return [...D.querySelectorAll('#out button[data-tex]')].map(b=>b.dataset.tex); }
+
+  // ---- 1. формулы по закрашенным областям ----
+  async function checkFormulas(k,masks,diff,minL){
+    let bad=0;
+    for(const t of masks){
+      setMask(t);
+      if(D.querySelector('#out .pending')) await waitSearch();
+      if(!check(chipMask()===t,`n=${k} закраска ${t}`)){bad++;continue;}
+      const tex=shownTex();
+      if(!check(tex.length>0,`n=${k} маска ${t}: нет формул`)){bad++;continue;}
+      let firstL=null;
+      tex.forEach((s,j)=>{
+        let x; try{ x=parseTex(s,k); }catch(e){ check(false,`n=${k} маска ${t}: не разбирается «${s}»: ${e.message}`); bad++; return; }
+        const v=evalT(x,k);
+        if(!check(v===t,`n=${k} разность=${diff} маска ${t}: формула «${s}» даёт ${v}`)) bad++;
+        const L=leaves(x);
+        if(j===0) firstL=L;
+        else if(!check(L>=firstL,`n=${k} маска ${t}: «${s}» короче первой (${L}<${firstL})`)) bad++;
+      });
+      if(minL&&t!==0&&t!==FULLn(k)&&firstL!=null)
+        if(!check(firstL===minL[t],`n=${k} разность=${diff} маска ${t}: первая формула ${firstL} букв, минимум ${minL[t]}`)) bad++;
+      const seen=new Set(tex);
+      check(seen.size===tex.length,`n=${k} маска ${t}: повторяются формулы`);
+    }
+    return bad;
+  }
+  if($('tR').getAttribute('aria-pressed')==='true') click($('tF'));
+  for(const k of [2,3]){
+    await setN(k);
+    for(const diff of [true,false]){
+      await setDiff(diff);
+      if(!check(await waitSearch(),`n=${k}: перебор не завершился`)) continue;
+      const all=[]; for(let t=0;t<FULLn(k)+1;t++) all.push(t);
+      const t0=performance.now();
+      const bad=await checkFormulas(k,all,diff,minLeaves(k,diff));
+      log(`${bad?'✗':'✓'} ${k} множества, разность ${diff?'вкл':'выкл'}: все ${all.length} вариантов закраски, формулы верны и первая кратчайшая (${Math.round(performance.now()-t0)} мс)`,bad?'bad':'ok');
+      await sleep(0);
+    }
+  }
+  {
+    await setN(4);
+    for(const diff of [true,false]){
+      await setDiff(diff);
+      if(!check(await waitSearch(),'n=4: перебор не завершился')) continue;
+      const rnd=k=>Math.floor(Math.random()*k), masks=[0,FULLn(4)];
+      for(let m=0;m<16;m++){ masks.push(1<<m); masks.push(FULLn(4)&~(1<<m)); }
+      for(let i=0;i<600;i++) masks.push(rnd(65536));
+      const t0=performance.now();
+      const ml=minLeaves(4,diff);
+      const bad=await checkFormulas(4,masks,diff,ml);
+      log(`${bad?'✗':'✓'} 4 множества, разность ${diff?'вкл':'выкл'}: ${masks.length} вариантов закраски (все одиночные области, их дополнения и случайные), формулы верны и первая кратчайшая (${Math.round(performance.now()-t0)} мс)`,bad?'bad':'ok');
+      await sleep(0);
+    }
+  }
+  await setDiff(true);
+
+  // ---- 2. щелчки по диаграмме попадают в нужную область ----
+  const GEOM={
+    2:[{cx:165,cy:150,r:105},{cx:255,cy:150,r:105}],
+    3:[{cx:160,cy:138,r:95},{cx:260,cy:138,r:95},{cx:210,cy:224,r:95}],
+    4:[{cx:175,cy:300,rx:180,ry:112.5,rot:-140},{cx:225,cy:250,rx:180,ry:112.5,rot:-140},{cx:275,cy:250,rx:180,ry:112.5,rot:-40},{cx:325,cy:300,rx:180,ry:112.5,rot:-40}]
+  };
+  function level(s,x,y){ // <1 внутри, >1 снаружи
+    if(s.r) return Math.hypot(x-s.cx,y-s.cy)/s.r;
+    const t=s.rot*Math.PI/180, dx=x-s.cx, dy=y-s.cy;
+    const u=dx*Math.cos(t)+dy*Math.sin(t), v=-dx*Math.sin(t)+dy*Math.cos(t);
+    return Math.sqrt((u/s.rx)**2+(v/s.ry)**2);
+  }
+  for(const k of [2,3,4]){
+    await setN(k);
+    setMask(0);
+    const svg=$('venn'), vb=svg.viewBox.baseVal, ctm=svg.getScreenCTM();
+    const hit=new Set(); let bad=0, tested=0;
+    for(let x=vb.x+12;x<vb.x+vb.width-12;x+=9) for(let y=vb.y+12;y<vb.y+vb.height-12;y+=9){
+      const ls=GEOM[k].map(s=>level(s,x,y));
+      if(ls.some(l=>Math.abs(l-1)<0.03)) continue; // слишком близко к границе
+      let m=0; ls.forEach((l,i)=>{ if(l<1) m|=1<<(k-1-i); });
+      const pt=svg.createSVGPoint(); pt.x=x; pt.y=y; const c=pt.matrixTransform(ctm);
+      const before=chipMask();
+      svg.dispatchEvent(new W.MouseEvent('click',{clientX:c.x,clientY:c.y,bubbles:true}));
+      const diff=chipMask()^before;
+      tested++;
+      if(diff!==(1<<m)){ bad++; check(false,`n=${k}: щелчок в (${x},${y}) закрасил ${diff}, ожидалась область ${m}`); }
+      else pass++;
+      hit.add(m);
+      setMask(0);
+    }
+    check(hit.size===(1<<k),`n=${k}: щелчками достижимы ${hit.size} из ${1<<k} областей`);
+    log(`${bad||hit.size!==(1<<k)?'✗':'✓'} ${k} множества: ${tested} щелчков по диаграмме, области определяются верно, достижимы все ${hit.size} из ${1<<k}`,bad?'bad':'ok');
+  }
+
+  // ---- 3. задачи «формула → диаграмма» по уровням ----
+  click($('tR'));
+  const LV={2:{any:[2,3,2]},3:{easy:[2,3,2],medium:[3,4,3],hard:[5,6,3]},4:{easy:[3,4,3],medium:[4,5,4],hard:[6,7,4]}};
+  const minL4={};
+  for(const k of [2,3,4]){
+    await setN(k);
+    check($('lvlRow').hidden===(k===2),`n=${k}: выбор уровня ${k===2?'скрыт':'виден'}`);
+    for(const diff of [true,false]){
+      await setDiff(diff);
+      const ml=minL4[k+':'+diff]||(minL4[k+':'+diff]=minLeaves(k,diff));
+      for(const lv of Object.keys(LV[k])){
+        if(k>2) click(D.querySelector(`#lvl button[data-lvl="${lv}"]`));
+        const [lo,hi,nv]=LV[k][lv]; let bad=0; const lens=[], shorts=[];
+        for(let i=0;i<40;i++){
+          click($('bNew'));
+          const s=$('taskTex').dataset.tex;
+          let x; try{ x=parseTex(s,k); }catch(e){ check(false,`задача не разбирается «${s}»`); bad++; continue; }
+          const v=evalT(x,k), L=leaves(x); lens.push(L);
+          if(ml) shorts.push(ml[v]);
+          if(!check(L>=lo&&L<=hi,`n=${k} ${lv}: в задаче «${s}» ${L} букв, ожидалось ${lo}–${hi}`)) bad++;
+          if(!check(varsUsed(x).size>=nv,`n=${k} ${lv}: в задаче «${s}» мало множеств`)) bad++;
+          if(!check(v!==0&&v!==FULLn(k),`n=${k} ${lv}: задача «${s}» пустая или весь универсум`)) bad++;
+          if(!diff&&!check(!s.includes('setminus'),`n=${k}: разность выключена, а в задаче «${s}» она есть`)) bad++;
+          setMask(0); click($('bCheck'));
+          if(!check($('msg').className.includes('bad'),`n=${k}: пустой ответ на «${s}» не засчитан как неверный`)) bad++;
+          click($('bShow'));
+          if(!check(chipMask()===v,`n=${k} ${lv}: «Показать ответ» для «${s}» закрасил ${chipMask()}, верно ${v}`)) bad++;
+          click($('bCheck'));
+          if(!check($('msg').className.includes('ok'),`n=${k}: верный ответ на «${s}» не принят`)) bad++;
+        }
+        const avg=a=>a.length?(a.reduce((p,q)=>p+q,0)/a.length).toFixed(1):'–';
+        log(`${bad?'✗':'✓'} ${k} множества, ${k===2?'без уровня':lv}, разность ${diff?'вкл':'выкл'}: 40 задач; букв в среднем ${avg(lens)}${shorts.length?', в кратчайшей равносильной '+avg(shorts):''}; проверка и «Показать ответ» верны`,bad?'bad':'ok');
+        await sleep(0);
+      }
+    }
+  }
+  await setDiff(true);
+
+  // ---- 4. ввод своей формулы ----
+  await setN(3);
+  const A=varMaskN(3,0),B=varMaskN(3,1),C=varMaskN(3,2),F3=FULLn(3),no=x=>F3&~x;
+  const cases=[
+    ['(A \\cup B) \\setminus C',(A|B)&no(C)],
+    ["(A+B)-C'",(A|B)&C],
+    ['A*B+C',(A&B)|C],
+    ['A+B*C',A|(B&C)],
+    ['A ∪ B ∩ C',A|(B&C)],
+    ['A-B-C',A&no(B)&no(C)],
+    ['A-(B-C)',A&no(B&no(C))],
+    ['A+B-C',(A|B)&no(C)],
+    ['A-B+C',(A&no(B))|C],
+    ['~(A+B)',no(A|B)],
+    ['¬A∩B',no(A)&B],
+    ['\\overline{A \\cap B}',no(A&B)],
+    ['\\overline{A} \\cup B',no(A)|B],
+    ["A''",A],
+    ["(A*B)'",no(A&B)],
+    ['U-A',no(A)],
+    ['\\varnothing',0],
+    ['∅+A',A],
+    ['A \\ B',A&no(B)],
+    ['A∖B',A&no(B)],
+    ['\\left( A \\cup B \\right) \\cap C',(A|B)&C],
+    ['[A+B]*{C}',(A|B)&C],
+    ['A ∩ B ∩ C ∪ A',((A&B&C)|A)],
+  ];
+  let bad=0;
+  for(const [src,want] of cases){
+    const fin=$('fin'); fin.value=src; fin.dispatchEvent(new W.Event('input'));
+    click($('bPaint'));
+    if(!check($('ferr').textContent==='',`ввод «${src}»: ошибка «${$('ferr').textContent}»`)){bad++;continue;}
+    if(!check(chipMask()===want,`ввод «${src}»: закрашено ${chipMask()}, верно ${want}`)) bad++;
+    click($('bAsTask'));
+    const s=$('taskTex').dataset.tex;
+    try{ if(!check(evalT(parseTex(s,3),3)===want,`«Решить как задачу» для «${src}» показал «${s}»`)) bad++; }
+    catch(e){ check(false,`«Решить как задачу» для «${src}»: «${s}» не разбирается`); bad++; }
+  }
+  const errs=['A+','(A','A)','AB','A+*B','E','',' '];
+  for(const src of errs){
+    const fin=$('fin'); fin.value=src; fin.dispatchEvent(new W.Event('input'));
+    const before=chipMask(); click($('bPaint'));
+    if(!check($('ferr').textContent!=='',`ввод «${src}» должен дать ошибку`)) bad++;
+    if(!check(chipMask()===before,`ошибочный ввод «${src}» изменил закраску`)) bad++;
+  }
+  log(`${bad?'✗':'✓'} ввод формул: ${cases.length} правильных записей закрашивают верно, ${errs.length} ошибочных отклоняются`,bad?'bad':'ok');
+
+  // ---- 5. кнопка «Сообщить об ошибке» ----
+  {
+    let opened=null; const orig=W.open; W.open=(u)=>{opened=u; return null;};
+    click($('bReport')); W.open=orig;
+    const ok=check(!!opened&&opened.startsWith('https://github.com/vdolgorukov/venn-formula/issues/new?'),'кнопка «Сообщить об ошибке» открывает форму на GitHub');
+    const body=opened?decodeURIComponent(opened.split('&body=')[1]||''):'';
+    const ok2=check(body.includes('Задача:')&&body.includes('Множеств: 3'),'в сообщение попадает состояние тренажёра');
+    log(`${ok&&ok2?'✓':'✗'} кнопка «Сообщить об ошибке»: открывает новое обращение на GitHub с описанием состояния`,ok&&ok2?'ok':'bad');
+  }
+
+  sumEl.textContent=fail?`Провалено проверок: ${fail} из ${pass+fail}`:`Все проверки пройдены: ${pass}`;
+  sumEl.className=fail?'bad':'ok';
+  window.__results={pass,fail,failures,log:[...logEl.children].map(d=>d.textContent)};
+})().catch(e=>{ document.getElementById('sum').textContent='Тест упал: '+e.message; document.getElementById('sum').className='bad'; window.__results={error:String(e.stack||e)}; });
+</script>
+</body>
+</html>
