@@ -113,8 +113,8 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
   function setMask(t){ const cur=chipMask(); for(let m=0;m<(1<<n);m++) if(((cur^t)>>m)&1) toggle(m); }
   async function setN(k){ click($('m'+k)); n=k; }
   async function waitSearch(){ for(let i=0;i<600;i++){ if(!D.querySelector('#out .pending')) return true; await sleep(100);} return false; }
-  const diffOn=()=>$('bDiff').getAttribute('aria-pressed')==='true';
-  async function setDiff(on){ if(diffOn()!==on) click($('bDiff')); }
+  const diffOn=()=>$('optDiff').checked;
+  async function setDiff(on){ if(diffOn()!==on) click($('optDiff')); }
   function shownTex(){ return [...D.querySelectorAll('#out button[data-tex]')].map(b=>b.dataset.tex); }
 
   // ---- 1. формулы по закрашенным областям ----
@@ -123,6 +123,8 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     for(const t of masks){
       setMask(t);
       if(D.querySelector('#out .pending')) await waitSearch();
+      click($('bFShow'));
+      if(!check(!$('ansBox').hidden,`n=${k} маска ${t}: «Показать ответы» не открыл варианты`)){bad++;continue;}
       if(!check(chipMask()===t,`n=${k} закраска ${t}`)){bad++;continue;}
       const tex=shownTex();
       if(!check(tex.length>0,`n=${k} маска ${t}: нет формул`)){bad++;continue;}
@@ -171,6 +173,51 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     }
   }
   await setDiff(true);
+
+  // ---- 1б. своя формула в режиме «диаграмма → формула» ----
+  {
+    await setN(3); let bad=0;
+    const typeF=src=>{ const fin=$('fin'); fin.value=src; fin.dispatchEvent(new W.Event('input')); };
+    const errCount=()=>D.querySelectorAll('#venn .reg.err').length;
+    const pop=x=>{let c=0;while(x){c+=x&1;x>>>=1;}return c;};
+    for(let i=0;i<60;i++){
+      const t=Math.floor(Math.random()*256);
+      setMask(t);
+      if(!check($('ansBox').hidden,`маска ${t}: варианты видны до проверки`)) bad++;
+      click($('bFShow')); const tex=shownTex(); setMask(t^1); setMask(t); // закраска менялась — варианты снова скрыты
+      if(!check($('ansBox').hidden,`маска ${t}: после смены закраски варианты не скрылись`)) bad++;
+      // правильная формула
+      typeF(tex[tex.length-1]); click($('bFCheck'));
+      if(!check($('fmsg').className.includes('ok'),`маска ${t}: верная формула «${tex[tex.length-1]}» не принята: ${$('fmsg').textContent}`)) bad++;
+      if(!check(!$('ansBox').hidden&&shownTex().length>0,`маска ${t}: после проверки нет вариантов`)) bad++;
+      if(tex.length>1&&parseTex(tex[0],3)&&leaves(parseTex(tex[0],3))<leaves(parseTex(tex[tex.length-1],3)))
+        if(!check($('fmsg').textContent.includes('короче'),`маска ${t}: не подсказано, что есть запись короче`)) bad++;
+      // неправильная формула: формула другой закраски
+      const u=Math.floor(Math.random()*256); if(u===t) continue;
+      setMask(u); click($('bFShow')); const wrong=shownTex()[0]; setMask(t);
+      typeF(wrong); click($('bFCheck'));
+      if(!check($('fmsg').className.includes('bad'),`маска ${t}: неверная формула «${wrong}» принята`)) bad++;
+      if(!check(errCount()===pop(t^u),`маска ${t}: красным отмечено ${errCount()} областей, расхождений ${pop(t^u)}`)) bad++;
+      if(!check(!$('ansBox').hidden,`маска ${t}: после неверного ответа нет вариантов`)) bad++;
+    }
+    // «Новая задача»
+    if(!check($('lvlRow').hidden,'во вкладке «диаграмма → формула» уровней нет')) bad++;
+    const ml3=minLeaves(3,true);
+    for(let i=0;i<40;i++){
+      $('fin').value='x'; click($('bFNew'));
+      const t=chipMask();
+      if(!check(t!==0&&t!==255,'«Новая задача» дала пустую или полную закраску')) bad++;
+      if(!check(ml3[t]>=3,`«Новая задача» слишком простая: кратчайшая формула ${ml3[t]} буквы`)) bad++;
+      if(!check($('fin').value===''&&$('ansBox').hidden,`«Новая задача» не очистила поле или не скрыла ответы`)) bad++;
+    }
+    typeF('A+'); click($('bFCheck'));
+    if(!check($('ferr').textContent!==''&&$('fmsg').className==='msg'||$('ferr').textContent!=='','ошибка в формуле не показана')) bad++;
+    typeF(''); $('ferr').textContent=''; click($('bFCheck'));
+    if(!check($('ferr').textContent!=='','пустая формула не вызвала подсказку')) bad++;
+    const det=D.querySelector('details.settings');
+    if(!check(det&&!det.open&&det.contains($('n0'))&&det.contains($('nU')),'имена множеств спрятаны в закрытые «Настройки»')) bad++;
+    log(`${bad?'✗':'✓'} своя формула в режиме «диаграмма → формула»: 60 закрасок с верным и неверным ответом (красным отмечены ровно расхождения), варианты скрыты до проверки, уровней нет, «Новая задача» — средний уровень, имена в «Настройках»`,bad?'bad':'ok');
+  }
 
   // ---- 2. щелчки по диаграмме попадают в нужную область ----
   const GEOM={
@@ -293,10 +340,297 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
   }
   log(`${bad?'✗':'✓'} ввод формул: ${cases.length} правильных записей закрашивают верно, ${errs.length} ошибочных отклоняются`,bad?'bad':'ok');
 
+  // ---- 4б. символы в поле ввода ----
+  {
+    let bad=0;
+    click($('tF'));
+    const fin=$('fin'); fin.value=''; fin.dispatchEvent(new W.Event('input'));
+    const key=lbl=>[...D.querySelectorAll('#keys button')].find(b=>b.textContent.trim()===lbl);
+    click(key('(')); click(key('A')); click(key('∪')); click(key('B')); click(key(')')); click(key('∖')); click(key('C'));
+    if(!check(fin.value.replace(/ /g,'')==='(A∪B)∖C',`кнопки вставили «${fin.value}» вместо «(A∪B)∖C»`)) bad++;
+    if(!check(!/\\/.test(fin.value),'кнопки вставили код LaTeX')) bad++;
+    const OV=()=>click(D.querySelector('#keys button[data-ins="OV"]'));
+    const bar=t=>'⟦'+t+'⟧';
+    const setF=(v,a,z)=>{ fin.value=v; fin.setSelectionRange(a??fin.value.length,z??a??fin.value.length); };
+    const ns=t=>t.replace(/ /g,'');
+    fin.setSelectionRange(0,fin.value.length); OV();
+    if(!check(ns(fin.value)===bar('(A∪B)∖C'),`дополнение выделенного дало «${fin.value}»`)) bad++;
+    if(!check(D.querySelector('#fin .fed-view > .ov')&&D.querySelector('#fin .fed-view > .ov').textContent.replace(/\s/g,'')==='(A∪B)∖C','в поле черта нарисована над всей выделенной частью')) bad++;
+    setF('A'); OV();
+    if(!check(fin.value===bar('A'),`черта над A перед курсором: «${fin.value}»`)) bad++;
+    setF('A∩(B∪C)'); OV();
+    if(!check(fin.value==='A∩'+bar('(B∪C)'),`черта над скобкой перед курсором: «${fin.value}»`)) bad++;
+    OV();
+    if(!check(fin.value==='A∩'+bar(bar('(B∪C)')),`двойная черта: «${fin.value}»`)) bad++;
+    if(!check(D.querySelectorAll('#fin .ov .ov').length===1,'двойная черта нарисована двумя уровнями')) bad++;
+    setF('A ∪ B ∩ C',4,9); OV();   // выделено «B ∩ C»
+    if(!check(fin.value==='A ∪ '+bar('B ∩ C'),`черта над выделенной частью: «${fin.value}»`)) bad++;
+    setF('A∪'+bar('B')+'∩C',3,4); OV();   // выделена только B под чертой — ставится вторая черта над B
+    if(!check(fin.value==='A∪'+bar(bar('B'))+'∩C',`черта над частью под чертой: «${fin.value}»`)) bad++;
+    setF('A∪'+bar('B∩C'),1,4); OV();   // выделение режет черту — расширяется до целой группы
+    if(!check(fin.value==='A'+bar('∪'+bar('B∩C')),`выделение, режущее черту: «${fin.value}»`)) bad++;
+    setF('A∪ ',3); OV();
+    if(!check($('ferr').textContent.includes('Выделите'),'без операнда перед курсором — подсказка')) bad++;
+    setF("(A∪B)'∩C'");
+    if(!check(fin.value===bar('(A∪B)')+'∩'+bar('C'),`штрих не превратился в черту: «${fin.value}»`)) bad++;
+    setF('\\overline{A \\cup B}');
+    if(!check(fin.value===bar('A ∪ B'),`\\overline не превратился в черту: «${fin.value}»`)) bad++;
+    // мышь: протащить от левого края B до правого края C
+    setF('A∪B∩C');
+    const chAt=i=>D.querySelector(`#fin .ch[data-i="${i}"]`).getBoundingClientRect();
+    const rB=chAt(2), rC=chAt(4), fed=$('fin');
+    fed.dispatchEvent(new W.MouseEvent('mousedown',{clientX:rB.left+1,clientY:rB.top+rB.height/2,bubbles:true}));
+    D.dispatchEvent(new W.MouseEvent('mousemove',{clientX:rC.right-1,clientY:rC.top+rC.height/2,bubbles:true}));
+    D.dispatchEvent(new W.MouseEvent('mouseup',{bubbles:true}));
+    if(!check(D.querySelectorAll('#fin .ch.sel').length===3,'выделение мышью подсвечено')) bad++;
+    OV();
+    if(!check(fin.value==='A∪'+bar('B∩C'),`выделение мышью + дополнение: «${fin.value}»`)) bad++;
+    // клавиатура: End, Shift+←, дополнение, Backspace, ввод символов
+    const kb=(key,o={})=>$('finIn').dispatchEvent(new W.KeyboardEvent('keydown',Object.assign({key,bubbles:true,cancelable:true},o)));
+    const typ=t=>{ const el=$('finIn'); el.value=t; el.dispatchEvent(new W.InputEvent('input',{bubbles:true,data:t})); };
+    setF('');
+    typ('A'); typ('+'); typ('B'); typ("'");
+    if(!check(fin.value==='A∪'+bar('B'),`набор A + B ' дал «${fin.value}»`)) bad++;
+    kb('Backspace');
+    if(!check(fin.value==='A∪',`Backspace после B̄ дал «${fin.value}»`)) bad++;
+    typ('C'); kb('Home'); kb('ArrowRight',{shiftKey:true}); OV();
+    if(!check(fin.value===bar('A')+'∪C',`Shift+→ и дополнение дали «${fin.value}»`)) bad++;
+    kb('End'); kb('ArrowLeft',{shiftKey:true}); kb('ArrowLeft',{shiftKey:true}); typ('*B');
+    if(!check(fin.value===bar('A')+'∩B',`замена выделения набором дала «${fin.value}»`)) bad++;
+    kb('a',{ctrlKey:true}); kb('Delete');
+    if(!check(fin.value==='',`Ctrl+A и Delete оставили «${fin.value}»`)) bad++;
+    fin.value='(A+B)*C-\\cup D';
+    if(!check(fin.value==='(A∪B)∩C∖∪ D',`набор с клавиатуры не превратился в символы: «${fin.value}»`)) bad++;
+    fin.value='\\overline{A} \\cap B \\setminus \\varnothing';
+    if(!check(fin.value==='⟦A⟧ ∩ B ∖ ∅',`LaTeX не превратился в символы: «${fin.value}»`)) bad++;
+    // значения закраски по символьной записи
+    const A=varMaskN(3,0),B=varMaskN(3,1),C=varMaskN(3,2),F=255;
+    for(const [src,want] of [['(A∪B)∖C',(A|B)&~C&F],['Aᶜ∩B',(F&~A)&B],['(A∩B)ᶜ',F&~(A&B)],['A∖B∖C',A&~B&~C&F],['∅∪A',A],
+        [bar('A')+'∩B',(F&~A)&B],[bar('A∩B'),F&~(A&B)],[bar('A∪B'),F&~(A|B)],['A∖'+bar('B∖C'),A&B&~C&F],
+        [bar('A∖'+bar('B')),F&~(A&B)],['C∩'+bar('(A∪B)'),C&~(A|B)&F]]){
+      fin.value=src; fin.dispatchEvent(new W.Event('input'));
+      click($('tR')); click($('bPaint'));
+      if(!check(chipMask()===want,`«${src}» закрасил ${chipMask()}, верно ${want}`)) bad++;
+      click($('tF'));
+    }
+    log(`${bad?'✗':'✓'} поле ввода: кнопки вставляют символы ∪ ∩ ∖ ∅, дополнение — черта над выделенным (мышью или Shift+стрелками) или над операндом перед курсором; Backspace, Delete, Ctrl+A, набранные + * - и LaTeX заменяются символами, символьные формулы вычисляются верно`,bad?'bad':'ok');
+  }
+
+
+  // ---- 4г. серия: ввод формул и их вычисление ----
+  {
+    const W4=W, D4=D, g=id=>D4.getElementById(id);
+    const rnd=k=>Math.floor(Math.random()*k), pick=a=>a[rnd(a.length)];
+    let NM=['A','B','C','D'], UN='U';
+    const setNames=(arr,u)=>{ arr.forEach((v,i)=>{ const el=g('n'+i); el.value=v; el.dispatchEvent(new W4.Event('input')); }); const e=g('nU'); e.value=u; e.dispatchEvent(new W4.Event('input')); NM=arr.concat(['A','B','C','D'].slice(arr.length)); UN=u; };
+    // независимые случайные формулы
+    function tree(k,d){
+      if(d<=0||Math.random()<0.28){ if(Math.random()<0.06) return {t:'c',v:rnd(2)}; return {t:'v',i:rnd(k)}; }
+      if(Math.random()<0.22) return {t:'n',x:tree(k,d-1)};
+      return {t:'b',op:pick(['u','i','d']),l:tree(k,d-1),r:tree(k,d-1)};
+    }
+    function ev(x,k){ const F=FULLn(k);
+      if(x.t==='v') return varMaskN(k,x.i); if(x.t==='c') return x.v?F:0; if(x.t==='n') return F&~ev(x.x,k);
+      const a=ev(x.l,k), b=ev(x.r,k); return x.op==='u'?a|b:x.op==='i'?a&b:a&~b&F; }
+    const lv=x=>x.t==='v'||x.t==='c'?1:x.t==='n'?lv(x.x):lv(x.l)+lv(x.r);
+    const sp=()=>pick(['','',' ','  ']);
+    const OPS={sym:{u:'∪',i:'∩',d:'∖'},ascii:{u:'+',i:'*',d:'-'},latex:{u:'\\cup ',i:'\\cap ',d:'\\setminus '}};
+    // все двуместные операции в скобках; дополнение — штрих, тильда или \overline
+    function serFull(x,st,cs){
+      if(x.t==='v') return NM[x.i];
+      if(x.t==='c') return x.v?UN:(st==='latex'?'\\varnothing ':'∅');
+      if(x.t==='n'){ const inn=serFull(x.x,st,cs); return cs==='prime'?inn+"'":cs==='tilde'?'~'+inn:'\\overline{'+inn+'}'; }
+      const [o,c]=pick([['(',')'],['(',')'],['[',']'],['{','}']]);
+      return o+sp()+serFull(x.l,st,cs)+sp()+OPS[st][x.op]+sp()+serFull(x.r,st,cs)+sp()+c;
+    }
+    // минимум скобок по правилам: ∩ сильнее ∪ и ∖, ∪ и ∖ — слева направо
+    const pr=x=>x.t==='b'?(x.op==='i'?2:1):3;
+    function serMin(x,cs){
+      if(x.t==='v') return NM[x.i];
+      if(x.t==='c') return x.v?UN:'∅';
+      if(x.t==='n'){ let inn=serMin(x.x,cs); if(x.x.t==='b') inn='('+inn+')'; return cs==='prime'?inn+"'":'~'+inn; }
+      let l=serMin(x.l,cs), r=serMin(x.r,cs); const p=pr(x);
+      if(pr(x.l)<p) l='('+l+')';
+      if(pr(x.r)<p||(p===1&&pr(x.r)===1)) r='('+r+')';   // A ∪ (B ∖ C ∪ D) без скобок читалось бы слева направо
+      return l+sp()+OPS.sym[x.op]+sp()+r;
+    }
+    // ввод кнопками: символы и кнопка с чертой после операнда
+    function acts(x,out){
+      if(x.t==='v'){ out.push(['t',NM[x.i]]); return out; }
+      if(x.t==='c'){ out.push(['t',x.v?UN:'∅']); return out; }
+      if(x.t==='n'){ if(x.x.t==='b'){ out.push(['t','(']); acts(x.x,out); out.push(['t',')']); } else acts(x.x,out); out.push(['ov']); return out; }
+      out.push(['t','(']); acts(x.l,out); out.push(['t',OPS.sym[x.op]]); acts(x.r,out); out.push(['t',')']); return out;
+    }
+    const typ=t=>{ const el=g('finIn'); el.value=t; el.dispatchEvent(new W4.InputEvent('input',{bubbles:true,data:t})); };
+    const ovBtn=()=>click(D4.querySelector('#keys button[data-ins="OV"]'));
+    function enter(str,how){
+      g('fin').value='';
+      if(how==='paste') g('fin').value=str;
+      else for(const ch of str) typ(ch);   // посимвольно, с заменами «на лету»
+    }
+    // независимый разбор строки по описанным правилам (для случайных строк)
+    function refParse(src,k){
+      const toks=[]; let i=0;
+      const ids=[...NM.slice(0,k).map((nm,j)=>({nm,j})),{nm:UN,j:-1}].sort((a,b)=>b.nm.length-a.nm.length);
+      while(i<src.length){ const c=src[i];
+        if(c===' '){i++;continue;}
+        const m={'∪':'u','+':'u','∩':'i','*':'i','∖':'d','-':'d','~':'neg',"'":'post','(':'lp','[':'lp','{':'lp',')':'rp',']':'rp','}':'rp'}[c];
+        if(m){toks.push(m);i++;continue;}
+        if(c==='∅'){toks.push({e:1});i++;continue;}
+        const id=ids.find(o=>src.startsWith(o.nm,i)); if(id){toks.push({v:id.j}); i+=id.nm.length; continue;}
+        throw 'символ';
+      }
+      if(!toks.length) throw 'пусто';
+      let p=0; const F=FULLn(k);
+      const expr=()=>{ let x=inter(); while(toks[p]==='u'||toks[p]==='d'){ const o=toks[p++], y=inter(); x=o==='u'?x|y:x&~y&F; } return x; };
+      const inter=()=>{ let x=unary(); while(toks[p]==='i'){p++; x&=unary();} return x; };
+      const unary=()=>{ if(toks[p]==='neg'){p++; return F&~unary();} let x=prim(); while(toks[p]==='post'){p++; x=F&~x;} return x; };
+      const prim=()=>{ const t=toks[p++]; if(t&&t.v!==undefined) return t.v<0?F:varMaskN(k,t.v); if(t&&t.e) return 0;
+        if(t==='lp'){ const x=expr(); if(toks[p++]!=='rp') throw 'скобка'; return x; } throw 'операнд'; };
+      const x=expr(); if(p!==toks.length) throw 'лишнее'; return x;
+    }
+    click(g('tR'));
+    const stats={};
+    const addStat=(key,ok)=>{ stats[key]=stats[key]||[0,0]; stats[key][ok?0:1]++; };
+    function paintAndCheck(want,label,k,alsoTask){
+      click(g('bPaint'));
+      let ok=check(g('ferr').textContent==='',`${label}: ошибка «${g('ferr').textContent}»`);
+      ok=check(chipMask()===want,`${label}: закрашено ${chipMask()}, верно ${want}`)&&ok;
+      if(alsoTask){
+        click(g('bAsTask'));
+        const s2=g('taskTex').dataset.tex;
+        try{ ok=check(evalT(parseTex(s2,k),k)===want,`${label}: «Решить как задачу» показал «${s2}»`)&&ok; }
+        catch(e){ ok=check(false,`${label}: задача «${s2}» не разбирается`)&&ok; }
+      }
+      return ok;
+    }
+    for(const k of [2,3,4]){
+      await setN(k);
+      for(let i=0;i<150;i++){
+        const x=tree(k,k===4?4:3), want=ev(x,k);
+        const variants=[
+          ['символы, все скобки, штрих',serFull(x,'sym','prime'),'paste'],
+          ['+ * -, все скобки, тильда',serFull(x,'ascii','tilde'),'paste'],
+          ['LaTeX',serFull(x,'latex','latex'),'paste'],
+          ['минимум скобок, штрих',serMin(x,'prime'),'paste'],
+          ['минимум скобок, тильда',serMin(x,'tilde'),'paste'],
+          ['посимвольный набор + * - и штриха',serFull(x,'ascii','prime'),'type'],
+          ['посимвольный набор LaTeX',serFull(x,'latex','latex'),'type'],
+        ];
+        for(const [name,str,how] of variants){
+          enter(str,how);
+          addStat(name,paintAndCheck(want,`n=${k} ${name} «${str}»`,k,i%5===0));
+        }
+        // кнопками: символы и черта над операндом перед курсором
+        g('fin').value='';
+        for(const a of acts(x,[])){ if(a[0]==='t') typ(a[1]); else ovBtn(); }
+        addStat('кнопки и черта',paintAndCheck(want,`n=${k} кнопки «${g('fin').value}»`,k,i%5===0));
+        await sleep(0);
+      }
+    }
+    // черта над выделенной частью: берём формулу с минимумом скобок, выделяем случайный целый операнд и ставим черту
+    await setN(3);
+    for(let i=0;i<200;i++){
+      const x=tree(3,3);
+      // штрихи сразу превращаются в черту; затем выделяется случайная буква и над ней ставится черта кнопкой
+      g('fin').value=serFull(x,'sym','prime');
+      const model=g('fin').value;
+      const letters=[...model].map((c,j)=>[c,j]).filter(([c])=>NM.slice(0,3).includes(c));
+      if(!letters.length) continue;
+      const [c,j]=pick(letters);
+      g('fin').setSelectionRange(j,j+1); ovBtn();
+      // ожидаемое: та же формула, где эта буква под дополнением
+      let cnt=-1; const idx=letters.findIndex(l=>l[1]===j);
+      const mark=y=>{ if(y.t==='v'){ cnt++; return cnt===idx?{t:'n',x:y}:y; } if(y.t==='c') return y; if(y.t==='n') return {t:'n',x:mark(y.x)}; return {t:'b',op:y.op,l:mark(y.l),r:mark(y.r)}; };
+      const want=ev(mark(x),3);
+      addStat('черта над выделенной буквой',paintAndCheck(want,`выделена ${c} в «${model}» → «${g('fin').value}»`,3,false));
+    }
+    // случайные строки: страница и независимый разбор должны совпасть — или обе ошибка, или одна и та же закраска
+    for(const k of [2,3]){
+      await setN(k);
+      const AL=[...NM.slice(0,k),UN,'∅','∪','∩','∖','+','*','-',"'",'~','(',')','[',']',' '];
+      for(let i=0;i<1500;i++){
+        const len=1+rnd(9); let str=''; for(let j=0;j<len;j++) str+=pick(AL);
+        let ref=null; try{ ref=refParse(str,k); }catch(e){ ref=null; }
+        g('fin').value=str; const before=chipMask();
+        click(g('bPaint'));
+        const err=g('ferr').textContent!=='';
+        let ok;
+        if(ref===null) ok=check(err&&chipMask()===before,`n=${k} «${str}»: должна быть ошибка, а закрашено ${chipMask()}`);
+        else ok=check(!err&&chipMask()===ref,`n=${k} «${str}»: ${err?'ошибка «'+g('ferr').textContent+'»':'закрашено '+chipMask()}, верно ${ref}`);
+        addStat(ref===null?'случайные строки с ошибкой':'случайные правильные строки',ok);
+      }
+    }
+    // свои имена множеств, в том числе из нескольких букв
+    await setN(3);
+    for(const [names,u] of [[['P','Q','R'],'Ω'],[['AB','B','CA'],'U'],[['x1','x2','x3'],'E']]){
+      setNames(names,u);
+      for(let i=0;i<60;i++){
+        const x=tree(3,3), want=ev(x,3);
+        for(const [name,str,how] of [['символы',serFull(x,'sym','prime'),'paste'],['минимум скобок',serMin(x,'tilde'),'paste'],['набор',serFull(x,'ascii','prime'),'type']]){
+          enter(str,how);
+          addStat(`имена ${names.join(',')}; ${u}`,paintAndCheck(want,`имена ${names} ${name} «${str}»`,3,false));
+        }
+      }
+    }
+    setNames(['A','B','C','D'],'U');
+    // проверка своей формулы во вкладке «диаграмма → формула»
+    click(g('tF'));
+    const ml=minLeaves(3,true);
+    for(let i=0;i<400;i++){
+      const x=tree(3,3), gv=ev(x,3), t=Math.random()<0.5?gv:rnd(256);
+      setMask(t);
+      enter(pick([serFull(x,'sym','prime'),serMin(x,'tilde'),serFull(x,'latex','latex')]),'paste');
+      click(g('bFCheck'));
+      const msgT=g('fmsg').textContent, cls=g('fmsg').className;
+      let ok;
+      if(gv===t){
+        const minL=(t===0||t===255)?1:ml[t], L=lv(x);
+        ok=check(cls.includes('ok'),`«${g('fin').value}» для закраски ${t}: верная формула не принята (${msgT})`);
+        ok=check(msgT.includes('короче')===(L>minL),`«${g('fin').value}»: ${L} букв, кратчайшая ${minL}, а сообщение «${msgT}»`)&&ok;
+      } else {
+        const pop=v=>{let c=0;while(v){c+=v&1;v>>>=1;}return c;};
+        ok=check(cls.includes('bad'),`«${g('fin').value}» для закраски ${t}: неверная формула принята`);
+        ok=check(D4.querySelectorAll('#venn .reg.err').length===pop(gv^t),'красным отмечены не ровно расхождения')&&ok;
+        const ex=pop(gv&~t), ms=pop(t&~gv);
+        ok=check((ex>0)===msgT.includes('захватывает '+ex)&&(ms>0)===msgT.includes('не захватывает '+ms),`сообщение «${msgT}» не соответствует: лишних ${ex}, пропущено ${ms}`)&&ok;
+      }
+      ok=check(!g('ansBox').hidden,'после проверки нет правильных вариантов')&&ok;
+      addStat(gv===t?'проверка: верные формулы':'проверка: неверные формулы',ok);
+    }
+    const lines=Object.entries(stats).map(([k2,[a,b]])=>`   ${b?'✗':'·'} ${k2}: ${a+b} формул${b?', ошибок '+b:''}`);
+    const anyBad=Object.values(stats).some(v=>v[1]);
+    log(`${anyBad?'✗':'✓'} серия ввода формул (всего ${Object.values(stats).reduce((s2,v)=>s2+v[0]+v[1],0)}):`,anyBad?'bad':'ok');
+    lines.forEach(l=>log(l,l.includes('✗')?'bad':'muted'));
+  }
+
+  // ---- 4в. настройки ----
+  {
+    let bad=0;
+    W.location.reload(); await new Promise(r=>frame.onload=r);
+    const D2=frame.contentDocument, g=id=>D2.getElementById(id);
+    const det=D2.querySelector('details.settings');
+    if(!check(det.contains(g('optDiff'))&&det.contains(g('optCons')),'разность и показ областей находятся в «Настройках»')) bad++;
+    if(!check(g('optDiff').checked,'разность по умолчанию включена')) bad++;
+    if(!check(!g('optCons').checked&&g('chips').hidden&&g('consH').hidden&&g('status').hidden,'области и подпись под диаграммой по умолчанию скрыты')) bad++;
+    g('optCons').click();
+    if(!check(!g('chips').hidden&&!g('consH').hidden&&!g('status').hidden,'галочка «Показывать области» показывает их')) bad++;
+    g('optCons').click();
+    if(!check(g('chips').hidden&&g('status').hidden,'снятие галочки снова скрывает области')) bad++;
+    g('optDiff').click(); g('bFShow').click();
+    await new Promise(r=>setTimeout(r,1500));
+    const tex=[...D2.querySelectorAll('#out button[data-tex]')].map(b=>b.dataset.tex);
+    if(!check(tex.length&&tex.every(t=>!t.includes('setminus')),'без разности в вариантах нет ∖')) bad++;
+    g('optDiff').click();
+    log(`${bad?'✗':'✓'} настройки: разность (по умолчанию вкл) и показ областей (по умолчанию выкл) в «Настройках» и работают`,bad?'bad':'ok');
+  }
+
   // ---- 5. кнопка «Сообщить об ошибке» ----
   {
-    let opened=null; const orig=W.open; W.open=(u)=>{opened=u; return null;};
-    click($('bReport')); W.open=orig;
+    const W3=frame.contentWindow, D3=frame.contentDocument;
+    D3.getElementById('tR').click();
+    let opened=null; W3.open=(u)=>{opened=u; return null;};
+    D3.getElementById('bReport').click();
     const ok=check(!!opened&&opened.startsWith('https://github.com/vdolgorukov/venn-formula/issues/new?'),'кнопка «Сообщить об ошибке» открывает форму на GitHub');
     const body=opened?decodeURIComponent(opened.split('&body=')[1]||''):'';
     const ok2=check(body.includes('Задача:')&&body.includes('Множеств: 3'),'в сообщение попадает состояние тренажёра');

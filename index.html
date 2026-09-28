@@ -69,6 +69,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .names{display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--muted);font-size:13.5px}
 .names label{display:flex;gap:5px;align-items:center}
 .names input{width:44px;font-family:var(--math);font-size:16px;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);text-align:center}
+.opts{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;font-size:13.5px}
+.opts label{display:flex;gap:8px;align-items:center;cursor:pointer;width:max-content;max-width:100%}
+.opts input{margin:0;accent-color:var(--accent)}
+.settings{border-top:1px solid var(--line);padding-top:10px}
+.settings summary{cursor:pointer;color:var(--muted);font-size:13.5px;width:max-content;list-style-position:outside}
+.settings summary:hover{color:var(--ink)}
+.settings[open] summary{margin-bottom:10px}
+.ans-h{margin-bottom:10px}
 .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;margin:0}
 .tools{display:flex;justify-content:flex-end}
 .rev{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -78,7 +86,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .msg.bad{color:var(--bad)}
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:600}
 button.primary:hover{filter:brightness(1.08)}
-#fin{width:100%;font-family:var(--mono);font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+.fed{position:relative;min-height:44px;padding:5px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-family:var(--math);font-size:21px;line-height:1.6;cursor:text}
+.fed.focus{outline:2px solid var(--accent);outline-offset:1px}
+.fed.empty::after{content:attr(data-placeholder);position:absolute;left:10px;top:5px;color:var(--muted);font-size:17px;line-height:32px;pointer-events:none}
+.fed-in{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px}
+.fed-view{user-select:none;-webkit-user-select:none;overflow-wrap:anywhere}
+.fed-view .op{margin:0 .12em}
+.fed-view .sel{background:var(--shade);box-shadow:0 0 0 1px var(--shade)}
+.fed-view .ov{line-height:1.3}
+.fed-caret{display:inline-block;width:0;height:1.1em;margin-right:-1.5px;border-left:1.5px solid var(--ink);vertical-align:-.2em;visibility:hidden}
+.fed.focus .fed-caret{visibility:visible;animation:fedblink 1.06s steps(1) infinite}
+@keyframes fedblink{50%{visibility:hidden}}
 .keys button{font-family:var(--math);font-size:17px;min-width:36px;padding:3px 8px}
 .keys .sep{width:6px}
 .preview{min-height:1.7em;font-size:22px}
@@ -94,7 +112,7 @@ button.primary:hover{filter:brightness(1.08)}
 .f.main .expr{font-size:26px}
 svg.op{display:inline-block;width:.56em;height:.68em;vertical-align:-.02em;overflow:visible}
 svg.op path{fill:none;stroke:currentColor;stroke-width:1.15;stroke-linecap:butt}
-.ov{display:inline-block;border-top:1.3px solid currentColor;padding-top:1px;line-height:1.15}
+.ov{display:inline-block;border-top:1.3px solid currentColor;padding-top:2px;line-height:1.15}
 .fl{display:flex;gap:12px;align-items:center;justify-content:space-between}
 .texbtn{flex:none;font-family:var(--mono);font-size:12px;padding:4px 9px;color:var(--muted)}
 .texbtn:hover{color:var(--ink)}
@@ -112,7 +130,7 @@ button.report:hover{color:var(--ink)}
   <header>
     <div>
       <h1>Формула по диаграмме Венна</h1>
-      <p id="lead">Щёлкните по областям диаграммы, чтобы закрасить их. Справа появятся равносильные выражения для закрашенной части.</p>
+      <p id="lead">Закрасьте области диаграммы щелчками или нажмите «Новая задача». Запишите формулу для закрашенной части и проверьте её: после проверки появятся правильные варианты.</p>
     </div>
     <div class="row">
       <div class="seg" role="group" aria-label="Тип задачи">
@@ -130,14 +148,20 @@ button.report:hover{color:var(--ink)}
   <div class="grid">
     <section class="panel" aria-label="Диаграмма" id="left">
       <svg id="venn" viewBox="0 0 420 340" role="img" aria-label="Диаграмма Венна"></svg>
-      <div class="status" id="status" aria-live="polite">&nbsp;</div>
+      <div class="status" id="status" aria-live="polite" hidden>&nbsp;</div>
       <div class="row">
         <button id="bClear" type="button">Очистить</button>
         <button id="bAll" type="button">Закрасить всё</button>
         <button id="bInv" type="button">Инвертировать</button>
       </div>
-      <p class="eyebrow">Области (конституенты)</p>
-      <div class="chips" id="chips"></div>
+      <p class="eyebrow" id="consH" hidden>Области (конституенты)</p>
+      <div class="chips" id="chips" hidden></div>
+      <details class="settings">
+        <summary>Настройки</summary>
+      <div class="opts">
+        <label><input type="checkbox" id="optDiff" checked> Использовать разность ∖</label>
+        <label><input type="checkbox" id="optCons"> Показывать области (конституенты)</label>
+      </div>
       <div class="names">
         <span>Имена:</span>
         <label>1 <input id="n0" value="A" maxlength="3" aria-label="Имя первого множества"></label>
@@ -146,20 +170,19 @@ button.report:hover{color:var(--ink)}
         <label id="lab3" hidden>4 <input id="n3" value="D" maxlength="3" aria-label="Имя четвёртого множества"></label>
         <label>универсум <input id="nU" value="U" maxlength="3" aria-label="Имя универсума"></label>
       </div>
+      </details>
     </section>
 
     <section class="panel" aria-label="Формулы">
-      <div class="tools"><div class="seg"><button type="button" id="bDiff" aria-pressed="true">Использовать разность</button></div></div>
-      <div id="out"></div>
-      <div id="rev" class="rev" hidden>
-        <div class="lvl" id="lvlRow">
-          <span class="eyebrow">Уровень</span>
-          <div class="seg" role="group" aria-label="Уровень задачи" id="lvl">
-            <button type="button" data-lvl="easy" aria-pressed="false">Лёгкий</button>
-            <button type="button" data-lvl="medium" aria-pressed="true">Средний</button>
-            <button type="button" data-lvl="hard" aria-pressed="false">Сложный</button>
-          </div>
+      <div class="lvl" id="lvlRow" hidden>
+        <span class="eyebrow">Уровень</span>
+        <div class="seg" role="group" aria-label="Уровень задачи" id="lvl">
+          <button type="button" data-lvl="easy" aria-pressed="false">Лёгкий</button>
+          <button type="button" data-lvl="medium" aria-pressed="true">Средний</button>
+          <button type="button" data-lvl="hard" aria-pressed="false">Сложный</button>
         </div>
+      </div>
+      <div id="rev" class="rev" hidden>
         <div class="f">
           <p class="eyebrow">Задача</p>
           <div class="fl"><div class="expr task-expr" id="taskExpr"></div>
@@ -174,21 +197,33 @@ button.report:hover{color:var(--ink)}
         </div>
         <p class="msg" id="msg" aria-live="polite"></p>
         <p class="or">своя формула</p>
-        <label class="eyebrow" for="fin">Введите формулу</label>
-        <input id="fin" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="например (A \cup B) \setminus C  или  (A+B)-C'">
+      </div>
+      <div class="rev">
+        <label class="eyebrow" for="finIn" id="finLabel">Формула для закрашенной части</label>
+        <div class="fed empty" id="fin" data-placeholder="например (A ∪ B) ∖ C"><input class="fed-in" id="finIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="fed-view" aria-hidden="true"></div></div>
         <div class="row keys" id="keys"></div>
         <div class="expr preview" id="prev"></div>
         <p class="ferr" id="ferr"></p>
-        <div class="row">
+        <p class="help">Кнопки вставляют символы. С клавиатуры можно печатать <code>+</code>, <code>*</code>, <code>-</code>: они сами превращаются в ∪, ∩, ∖. Дополнение: выделите часть формулы мышью или Shift+стрелками и нажмите кнопку с чертой — она окажется под чертой; без выделения черта ставится над множеством или скобкой перед курсором. Штрих <code>A'</code>, <code>(A∪B)'</code> тоже превращается в черту, работает и <code>~</code> перед множеством. Понимается и LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность — слева направо; как формула понята, видно в строке под полем.</p>
+        <div class="row" id="revBtns" hidden>
           <button type="button" id="bPaint">Закрасить</button>
           <button type="button" id="bAsTask">Решить как задачу</button>
         </div>
-        <p class="help">Можно писать в LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Или простыми символами: объединение <code>+</code>, пересечение <code>*</code>, разность <code>-</code> или <code>\</code>, дополнение <code>A'</code> или <code>~A</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность выполняются слева направо; как формула понята, видно в строке под полем.</p>
+        <div class="row" id="fwdBtns">
+          <button type="button" class="primary" id="bFCheck">Проверить</button>
+          <button type="button" id="bFShow">Показать ответы</button>
+          <button type="button" id="bFNew">Новая задача</button>
+        </div>
+        <p class="msg" id="fmsg" aria-live="polite"></p>
+      </div>
+      <div id="ansBox" hidden>
+        <p class="eyebrow ans-h">Правильные варианты</p>
+        <div id="out"></div>
       </div>
     </section>
   </div>
 
-  <p class="note" id="fnote">Варианты по порядку: самая короткая формула по числу вхождений букв (полный перебор); если включена разность, сначала с ней, потом без неё. Затем «структурная» запись: из множества, построенного только с помощью ∪ и ∩, вычитается другое такое же, из него третье и т. д. (например, объединение попарных пересечений минус пересечение всех трёх); без разности вычитание записывается через пересечение с дополнением. Дальше минимальная ДНФ, минимальная КНФ и объединение конституент. Совпадающие варианты не повторяются, скобки при смешанных операциях ставятся всегда. Для четырёх множеств перебор занимает несколько секунд после первого переключения.</p>
+  <p class="note" id="fnote" hidden>Варианты по порядку: самая короткая формула по числу вхождений букв (полный перебор); если включена разность, сначала с ней, потом без неё. Затем «структурная» запись: из множества, построенного только с помощью ∪ и ∩, вычитается другое такое же, из него третье и т. д. (например, объединение попарных пересечений минус пересечение всех трёх); без разности вычитание записывается через пересечение с дополнением. Дальше минимальная ДНФ, минимальная КНФ и объединение конституент. Совпадающие варианты не повторяются, скобки при смешанных операциях ставятся всегда. Для четырёх множеств перебор занимает несколько секунд после первого переключения.</p>
   <footer class="foot"><button type="button" class="report" id="bReport">Сообщить об ошибке</button></footer>
 </div>
 
@@ -499,7 +534,7 @@ button.report:hover{color:var(--ink)}
     }
     out.innerHTML=pre+blocks.join('<p class="or">или</p>');
   }
-  out.parentElement.addEventListener('click',e=>{
+  out.closest('section').addEventListener('click',e=>{
     const b=e.target.closest('button[data-tex]'); if(!b) return;
     const done=txt=>{b.textContent=txt; clearTimeout(b._t); b._t=setTimeout(()=>b.textContent='LaTeX',1400);};
     const fallback=()=>{ // буфер обмена недоступен: показать код и выделить его
@@ -509,10 +544,16 @@ button.report:hover{color:var(--ink)}
     };
     try{ navigator.clipboard.writeText(b.dataset.tex).then(()=>done('Скопировано'),fallback); }catch(err){ fallback(); }
   });
+  // в режиме «диаграмма → формула» правильные варианты открываются только после проверки своей формулы
+  let revealed=false, lastF=-1;
+  const ansBox=document.getElementById('ansBox'), fmsg=document.getElementById('fmsg');
+  function fsay(text,cls){ fmsg.textContent=text; fmsg.className='msg'+(cls?' '+cls:''); }
+  function syncAns(){ const show=!taskMode&&revealed; ansBox.hidden=!show; document.getElementById('fnote').hidden=!show; }
   function update(){
-    errMask=0; paint(); showStatus(); renderChips();
+    const changed=f!==lastF; lastF=f;
+    errMask=0; paint(); showStatus(); renderChips(); renderKeys(); parseInput();
     if(taskMode){ document.getElementById('msg').textContent=''; document.getElementById('msg').className='msg'; renderRev(); }
-    else renderOut();
+    else { if(changed){ revealed=false; fsay(''); syncAns(); } renderOut(); }
   }
   function paint(){ regEls.forEach((el,m)=>{ el.classList.toggle('on',!!(f>>m&1)); el.classList.toggle('hov',m===hov&&!(f>>m&1)); el.classList.toggle('err',!!(errMask>>m&1)); }); }
   function showStatus(){
@@ -622,8 +663,11 @@ button.report:hover{color:var(--ink)}
        hard:  {L:[6,7],vars:4,ops:3,cn:.3, short:5}}
   };
   let level='medium';
-  function curLevel(){ return LEVELS[n][n===2?'easy':level]; }
-  function newTask(){
+  // во вкладке «диаграмма → формула» уровень не выбирается: там задачи среднего уровня
+  function curLevel(){ return LEVELS[n][n===2?'easy':taskMode?level:'medium']; }
+  function syncLvl(){ document.getElementById('lvlRow').hidden = n===2||!taskMode; }
+  function newTask(){ setTask(genTask(),false); }
+  function genTask(){
     const F=FULL(), lv=curLevel(), tab=tables[n+':'+(useDiff?1:0)];
     let t=null;
     // если за много попыток подходящая формула не нашлась, требования постепенно ослабляются
@@ -641,7 +685,7 @@ button.report:hover{color:var(--ink)}
         t=c; break;
       }
     }
-    setTask(t,false);
+    return t;
   }
   // отбрасываем неестественные формулы: поглощение (A ∪ (A ∩ B)), пустые и полные части,
   // дополнение над выражением, где уже есть дополнение, вычитание дополнения
@@ -698,16 +742,178 @@ button.report:hover{color:var(--ink)}
   document.getElementById('bNew').onclick=()=>newTask();
 
   // своя формула
-  const fin=document.getElementById('fin'), prev=document.getElementById('prev'), ferr=document.getElementById('ferr');
-  let parsed=null;
+  // Поле ввода формулы. Формула хранится строкой mv, где ⟦…⟧ — часть под чертой (дополнение).
+  // Поле рисует её с настоящей чертой сверху; клавиатура работает через скрытое поле finIn,
+  // курсор cp и начало выделения an ведутся здесь.
+  const edEl=document.getElementById('fin'), edIn=document.getElementById('finIn'), edView=edEl.querySelector('.fed-view');
+  const fin=edEl, prev=document.getElementById('prev'), ferr=document.getElementById('ferr');
+  const OB='⟦', CB='⟧', isBr=c=>c===OB||c===CB;
+  let mv='', cp=0, an=0, parsed=null;
+  const selLo=()=>Math.min(an,cp), selHi=()=>Math.max(an,cp);
+  const edLatex=s=>s.split(OB).join('\\overline{').split(CB).join('}');
   function parseInput(){
     parsed=null; ferr.textContent=''; prev.innerHTML='';
-    const s=fin.value; if(!s.trim()) return;
-    try{ parsed=parseFormula(s); if(parsed) prev.innerHTML=render(parsed,RHk,null); }
-    catch(e){ ferr.textContent=e.message+(e.pos!=null?` (позиция ${e.pos+1})`:''); }
+    if(!mv.trim()) return;
+    try{ parsed=parseFormula(edLatex(mv)); if(parsed) prev.innerHTML=render(parsed,RHk,null); }
+    catch(e){ ferr.textContent=e.message+(e.pos!=null&&!mv.includes(OB)?` (позиция ${e.pos+1})`:''); }
   }
-  fin.addEventListener('input',parseInput);
-  fin.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('bPaint').click(); } });
+  // [начало, конец) операнда, который заканчивается перед позицией e: множество, скобка или часть под чертой
+  function operandBefore(s,e){
+    let i=e-1; while(i>=0&&s[i]===' ') i--;
+    if(i<0) return null;
+    const end=i+1, match=(open,close)=>{ let d=0; for(let j=i;j>=0;j--){ if(close.includes(s[j])) d++; else if(open.includes(s[j])&&!--d) return [j,end]; } return null; };
+    if(s[i]===CB) return match(OB,CB);
+    if(')]}'.includes(s[i])) return match('([{',')]}');
+    if(s[i]==='∅') return [i,end];
+    if(/[\p{L}\p{N}]/u.test(s[i])){ let j=i; while(j>0&&/[\p{L}\p{N}]/u.test(s[j-1])) j--; return [j,end]; }
+    return null;
+  }
+  function wrap(s,a,b){ while(a<b&&s[a]===' ') a++; while(b>a&&s[b-1]===' ') b--; return s.slice(0,a)+OB+s.slice(a,b)+CB+s.slice(b); }
+  // штрих после операнда (A', (A∪B)') превращается в черту над ним
+  function primesToBars(t){
+    let out='';
+    for(const ch of t){
+      if("'′ᶜ".includes(ch)){ const r=operandBefore(out,out.length); if(r){ out=wrap(out,r[0],r[1]); continue; } }
+      out+=ch;
+    }
+    return out;
+  }
+  // набранные с клавиатуры +, *, -, штрих и команды LaTeX сразу заменяются символами и чертой
+  function toSymbols(t){
+    t=t.replace(/\\(smallsetminus|setminus|cup|cap|varnothing|emptyset)(?![A-Za-z])/g,(_,c)=>({smallsetminus:'∖',setminus:'∖',cup:'∪',cap:'∩',varnothing:'∅',emptyset:'∅'})[c])
+       .replace(/\+/g,'∪').replace(/\*/g,'∩').replace(/[-−]/g,'∖');
+    let p;
+    do{ p=t; t=t.replace(/\\overline\s*\{([^{}]*)\}/,(_,x)=>OB+x.trim()+CB); }while(t!==p);
+    return primesToBars(t);
+  }
+  // пустые ⟦⟧ удаляются
+  function tidy(){ let i; while((i=mv.indexOf(OB+CB))>=0){ mv=mv.slice(0,i)+mv.slice(i+2); if(cp>i) cp=Math.max(i,cp-2); if(an>i) an=Math.max(i,an-2); } }
+  function deleteRange(a,b){ // удаляются символы, скобки черты остаются (пустые потом убираются)
+    let s=''; for(let i=0;i<mv.length;i++) if(i<a||i>=b||isBr(mv[i])) s+=mv[i];
+    mv=s; cp=an=a; tidy();
+  }
+  function insertText(t){
+    if(selHi()>selLo()) deleteRange(selLo(),selHi());
+    mv=mv.slice(0,cp)+t+mv.slice(cp); cp+=t.length;
+    const pre=toSymbols(mv.slice(0,cp)); mv=pre+toSymbols(mv.slice(cp)); cp=an=pre.length;
+    tidy(); edChanged();
+  }
+  function complement(){
+    let a=selLo(), b=selHi();
+    if(b>a&&mv.slice(a,b).replace(/[⟦⟧ ]/g,'')){
+      // выделение расширяется так, чтобы не резать уже поставленные черты
+      for(let changed=true;changed;){
+        changed=false; let d=0;
+        for(let i=a;i<b&&!changed;i++){
+          if(mv[i]===OB) d++;
+          else if(mv[i]===CB){ if(d) d--; else { const r=operandBefore(mv,i+1); if(r){ a=r[0]; changed=true; } } }
+        }
+        d=0;
+        for(let i=b-1;i>=a&&!changed;i--){
+          if(mv[i]===CB) d++;
+          else if(mv[i]===OB){ if(d) d--; else { let e=0; for(let j=i;j<mv.length;j++){ if(mv[j]===OB) e++; else if(mv[j]===CB&&!--e){ b=j+1; changed=true; break; } } } }
+        }
+      }
+    } else {
+      const r=operandBefore(mv,cp);
+      if(!r){ ferr.textContent='Выделите часть формулы или поставьте курсор сразу после множества или скобки.'; return; }
+      [a,b]=r;
+    }
+    const lenBefore=mv.length;
+    mv=wrap(mv,a,b);
+    cp=an=b+(mv.length-lenBefore); edChanged();
+  }
+  function renderEd(){
+    const lo=selLo(), hi=selHi(); let h='';
+    for(let i=0;i<=mv.length;i++){
+      if(i===cp&&lo===hi) h+='<span class="fed-caret"></span>';
+      if(i===mv.length) break;
+      const c=mv[i];
+      if(c===OB){ h+='<span class="ov">'; continue; }
+      if(c===CB){ h+='</span>'; continue; }
+      h+=`<span class="ch${'∪∩∖'.includes(c)?' op':''}${i>=lo&&i<hi?' sel':''}" data-i="${i}">${c===' '?'&nbsp;':esc(c)}</span>`;
+    }
+    edView.innerHTML=h;
+    edEl.classList.toggle('empty',!mv.length);
+  }
+  function edChanged(){ renderEd(); parseInput(); }
+  // позиция курсора по точке: ближайший символ, левая или правая половина
+  function posAt(x,y){
+    let best=null, bs=1e9;
+    edView.querySelectorAll('.ch').forEach(el=>{
+      const r=el.getBoundingClientRect();
+      const dy=Math.max(0,r.top-y,y-r.bottom), dx=Math.max(0,r.left-x,x-r.right), sc=dy*1000+dx;
+      if(sc<bs){ bs=sc; best={i:+el.dataset.i,r}; }
+    });
+    if(!best) return mv.length;
+    return x<best.r.left+best.r.width/2?best.i:best.i+1;
+  }
+  let dragging=false;
+  edEl.addEventListener('mousedown',e=>{
+    if(e.button) return;
+    e.preventDefault(); edIn.focus();
+    const p=posAt(e.clientX,e.clientY);
+    if(!e.shiftKey) an=p; cp=p; dragging=true; renderEd();
+  });
+  document.addEventListener('mousemove',e=>{ if(!dragging) return; const p=posAt(e.clientX,e.clientY); if(p!==cp){ cp=p; renderEd(); } });
+  document.addEventListener('mouseup',()=>{ dragging=false; });
+  edIn.addEventListener('focus',()=>edEl.classList.add('focus'));
+  edIn.addEventListener('blur',()=>edEl.classList.remove('focus'));
+  edIn.addEventListener('input',e=>{ if(e.isComposing) return; const t=edIn.value; edIn.value=''; if(t) insertText(t); });
+  edIn.addEventListener('compositionend',()=>{ const t=edIn.value; edIn.value=''; if(t) insertText(t); });
+  function copySel(e){ if(selHi()===selLo()) return false; e.preventDefault(); e.clipboardData.setData('text/plain',edLatex(mv.slice(selLo(),selHi()))); return true; }
+  edIn.addEventListener('copy',copySel);
+  edIn.addEventListener('cut',e=>{ if(copySel(e)){ deleteRange(selLo(),selHi()); edChanged(); } });
+  edIn.addEventListener('keydown',e=>{
+    const k=e.key, sh=e.shiftKey, mod=e.ctrlKey||e.metaKey, len=mv.length;
+    if(k==='Enter'){ e.preventDefault(); document.getElementById(taskMode?'bPaint':'bFCheck').click(); return; }
+    if(k==='ArrowLeft'||k==='ArrowRight'){
+      if(selHi()>selLo()&&!sh) cp=k==='ArrowLeft'?selLo():selHi();
+      else if(k==='ArrowLeft'){ let j=cp-1; while(j>=0&&isBr(mv[j])) j--; cp=Math.max(j,0); }
+      else { let j=cp; while(j<len&&isBr(mv[j])) j++; cp=j<len?j+1:len; }
+      if(!sh) an=cp;
+    }
+    else if(k==='Home'||k==='End'){ cp=k==='Home'?0:len; if(!sh) an=cp; }
+    else if(mod&&k.toLowerCase()==='a'){ an=0; cp=len; }
+    else if(k==='Backspace'||k==='Delete'){
+      if(selHi()>selLo()) deleteRange(selLo(),selHi());
+      else if(k==='Backspace'){ let j=cp-1; while(j>=0&&isBr(mv[j])) j--; if(j>=0) deleteRange(j,j+1); }
+      else { let j=cp; while(j<len&&isBr(mv[j])) j++; if(j<len){ const c0=cp; deleteRange(j,j+1); cp=an=Math.min(c0,mv.length); } }
+      e.preventDefault(); edChanged(); return;
+    }
+    else return;
+    e.preventDefault(); renderEd();
+  });
+  // для остального кода и тестов поле ведёт себя как обычное: value и setSelectionRange
+  Object.defineProperty(edEl,'value',{get:()=>mv,set:v=>{ mv=''; cp=an=0; insertText(String(v)); }});
+  edEl.setSelectionRange=(a,b)=>{ an=a; cp=b??a; renderEd(); };
+  edEl.focus=()=>edIn.focus();
+  renderEd();
+  // проверка своей формулы для закрашенной части
+  document.getElementById('bFCheck').onclick=()=>{
+    if(!parsed){ if(!ferr.textContent) ferr.textContent='Сначала введите формулу.'; return; }
+    const v=evalNode(parsed);
+    revealed=true; syncAns(); renderOut();
+    if(v===f){
+      errMask=0; paint();
+      const L=countLeaves(parsed);
+      const best=[useDiff?shortest(f,1):null,shortest(f,0)].filter(Boolean).map(countLeaves);
+      const minL=best.length?Math.min(...best):L;
+      fsay('Верно.'+(minL<L?` Есть запись короче: ${minL} ${plural(minL,'буква','буквы','букв')} вместо ${L}, это первый вариант ниже.`:''),'ok');
+    } else {
+      const extra=bits(v&~f), miss=bits(f&~v), parts=[];
+      if(extra) parts.push(`формула захватывает ${extra} ${plural(extra,'незакрашенную область','незакрашенные области','незакрашенных областей')}`);
+      if(miss) parts.push(`не захватывает ${miss} ${plural(miss,'закрашенную область','закрашенные области','закрашенных областей')}`);
+      errMask=v^f; paint();
+      fsay('Неверно: '+parts.join(', ')+'. Расхождения отмечены на диаграмме красным, правильные варианты ниже.','bad');
+    }
+  };
+  document.getElementById('bFShow').onclick=()=>{ revealed=true; syncAns(); renderOut(); };
+  document.getElementById('bFNew').onclick=()=>{
+    const t=genTask(); if(!t) return;
+    f=evalNode(t); fin.value=''; update();
+    fsay('Запишите формулу для закрашенной части и нажмите «Проверить».');
+  };
   document.getElementById('bPaint').onclick=()=>{
     if(!parsed){ if(!ferr.textContent) ferr.textContent='Сначала введите формулу.'; return; }
     f=evalNode(parsed); update(); say('Закрашено по введённой формуле.');
@@ -716,29 +922,20 @@ button.report:hover{color:var(--ink)}
     if(!parsed){ if(!ferr.textContent) ferr.textContent='Сначала введите формулу.'; return; }
     setTask(parsed,true); say('Формула стала задачей: закрасьте области и нажмите «Проверить».');
   };
-  function insertAtCursor(text,caretBack){
-    const a=fin.selectionStart??fin.value.length, b=fin.selectionEnd??fin.value.length;
-    fin.value=fin.value.slice(0,a)+text+fin.value.slice(b);
-    const pos=a+text.length-(caretBack||0);
-    fin.focus(); fin.setSelectionRange(pos,pos); parseInput();
-  }
+  function insertAtCursor(text){ insertText(text); edIn.focus(); }
   function renderKeys(){
-    const k=[['∪',' \\cup '],['∩',' \\cap '],['∖',' \\setminus '],['‾','OV'],['(','('],[')',')']];
-    let h=k.map(([lbl,ins])=>`<button type="button" data-ins="${esc(ins)}" title="${lbl==='‾'?'Дополнение: надчёркивание выделенного':'Вставить '+lbl}">${lbl==='‾'?'<span class="ov">&nbsp;X&nbsp;</span>':lbl}</button>`).join('');
+    const k=[['∪',' ∪ '],['∩',' ∩ '],['∖',' ∖ '],['‾','OV'],['(','('],[')',')']];
+    let h=k.map(([lbl,ins])=>`<button type="button" data-ins="${esc(ins)}" title="${lbl==='‾'?'Дополнение: выделенная часть формулы (или множество, скобка перед курсором) оказывается под чертой':'Вставить '+lbl}">${lbl==='‾'?'<span class="ov">&nbsp;X&nbsp;</span>':lbl}</button>`).join('');
     h+='<span class="sep"></span>';
     h+=names.slice(0,n).map(nm=>`<button type="button" data-ins="${esc(nm)}">${esc(nm)}</button>`).join('');
-    h+=`<button type="button" data-ins="${esc(uName)}">${esc(uName)}</button><button type="button" data-ins="\\varnothing ">∅</button>`;
+    h+=`<button type="button" data-ins="${esc(uName)}">${esc(uName)}</button><button type="button" data-ins="∅">∅</button>`;
     document.getElementById('keys').innerHTML=h;
   }
   document.getElementById('keys').addEventListener('mousedown',e=>{ if(e.target.closest('button')) e.preventDefault(); }); // не терять выделение в поле
   document.getElementById('keys').addEventListener('click',e=>{
     const b=e.target.closest('button[data-ins]'); if(!b) return;
     const ins=b.dataset.ins;
-    if(ins==='OV'){
-      const a=fin.selectionStart??fin.value.length, z=fin.selectionEnd??fin.value.length;
-      const sel=fin.value.slice(a,z);
-      if(sel){ fin.setSelectionRange(a,z); insertAtCursor('\\overline{'+sel+'}'); }
-      else insertAtCursor('\\overline{}',1);
+    if(ins==='OV'){ ferr.textContent=''; complement(); edIn.focus();
     } else insertAtCursor(ins);
   });
 
@@ -746,12 +943,16 @@ button.report:hover{color:var(--ink)}
     taskMode=on;
     document.getElementById('tF').setAttribute('aria-pressed',!on);
     document.getElementById('tR').setAttribute('aria-pressed',on);
-    document.getElementById('out').hidden=on;
     document.getElementById('rev').hidden=!on;
-    document.getElementById('fnote').hidden=on;
+    document.getElementById('revBtns').hidden=!on;
+    document.getElementById('fwdBtns').hidden=on;
+    fmsg.hidden=on;
+    syncLvl();
+    document.getElementById('finLabel').textContent=on?'Введите формулу':'Формула для закрашенной части';
+    syncAns();
     document.getElementById('lead').textContent= on
       ? 'Дана формула: закрасьте на диаграмме области, которые она обозначает, и проверьте ответ. Можно ввести и свою формулу.'
-      : 'Щёлкните по областям диаграммы, чтобы закрасить их. Справа появятся равносильные выражения для закрашенной части.';
+      : 'Закрасьте области диаграммы щелчками или нажмите «Новая задача». Запишите формулу для закрашенной части и проверьте её: после проверки появятся правильные варианты.';
     if(on){ if(!task||taskN!==n) newTask(); else update(); }
     else update();
   }
@@ -771,7 +972,7 @@ button.report:hover{color:var(--ink)}
     document.getElementById('m4').setAttribute('aria-pressed',n===4);
     document.getElementById('lab3').hidden = n!==4;
     document.getElementById('lab2').hidden = n===2;
-    document.getElementById('lvlRow').hidden = n===2;
+    syncLvl();
     document.getElementById('left').classList.toggle('n4',n===4);
     buildSvg();
     if(useDiff) startSearch(n,1);
@@ -779,11 +980,14 @@ button.report:hover{color:var(--ink)}
     if(taskMode&&taskN!==n){ newTask(); return; }
     update();
   }
-  document.getElementById('bDiff').onclick=e=>{
-    useDiff=!useDiff; e.currentTarget.setAttribute('aria-pressed',useDiff);
+  let showCons=false;
+  function syncCons(){ ['consH','chips','status'].forEach(id=>document.getElementById(id).hidden=!showCons); }
+  document.getElementById('optCons').addEventListener('change',e=>{ showCons=e.target.checked; syncCons(); });
+  document.getElementById('optDiff').addEventListener('change',e=>{
+    useDiff=e.target.checked;
     if(useDiff) startSearch(n,1);
     if(taskMode) renderRev(); else renderOut();
-  };
+  });
   document.getElementById('lvl').addEventListener('click',e=>{
     const b=e.target.closest('button[data-lvl]'); if(!b) return;
     level=b.dataset.lvl;
@@ -796,16 +1000,18 @@ button.report:hover{color:var(--ink)}
     const lines=[
       'Опишите, что пошло не так:','','','---',
       'Режим: '+(taskMode?'формула → диаграмма':'диаграмма → формула'),
-      'Множеств: '+n+(taskMode&&n>2?', уровень: '+level:'')+', разность: '+(useDiff?'да':'нет'),
+      'Множеств: '+n+(n>2&&taskMode?', уровень: '+level:'')+', разность: '+(useDiff?'да':'нет'),
       'Имена: '+names.slice(0,n).join(', ')+'; универсум: '+uName,
       'Закрашено: '+(cons.length?cons.join(' ∪ '):'ничего'),
     ];
     if(taskMode){
       if(task) lines.push('Задача: '+render(task,taskKeep?RTk:RT,null));
-      if(fin.value.trim()) lines.push('Введено: '+fin.value);
+      if(fin.value.trim()) lines.push('Введено: '+edLatex(fin.value));
       if(msg.textContent) lines.push('Сообщение: '+msg.textContent);
     } else {
-      const shown=[...out.querySelectorAll('button[data-tex]')].map(b=>b.dataset.tex);
+      if(fin.value.trim()) lines.push('Введено: '+edLatex(fin.value));
+      if(fmsg.textContent) lines.push('Сообщение: '+fmsg.textContent);
+      const shown=revealed?[...out.querySelectorAll('button[data-tex]')].map(b=>b.dataset.tex):[];
       if(shown.length) lines.push('Показанные формулы:',...shown.map(x=>'  '+x));
     }
     lines.push('Браузер: '+navigator.userAgent);
