@@ -109,6 +109,10 @@ button.primary:hover{filter:brightness(1.08)}
 .f{display:flex;flex-direction:column;gap:6px}
 .or{margin:0;font-family:var(--math);font-style:italic;font-size:16px;color:var(--muted);display:flex;align-items:center;gap:10px}
 .or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.or button{border:0;background:none;padding:0;font:inherit;color:inherit}
+.or button:hover{color:var(--ink)}
+/* «Формула → диаграмма»: сначала формула, потом диаграмма */
+.grid.task>#left{order:2}
 .pending{margin:0;font-size:13px;color:var(--muted)}
 .expr{font-family:var(--math);font-size:21px;line-height:1.7;overflow-wrap:anywhere}
 .f.main .expr{font-size:26px}
@@ -198,9 +202,9 @@ button.report:hover{color:var(--ink)}
           <button type="button" id="bNew">Новая задача</button>
         </div>
         <p class="msg" id="msg" aria-live="polite"></p>
-        <p class="or">своя формула</p>
+        <p class="or"><button type="button" id="bOwn" aria-expanded="false" aria-controls="own">▸ ввести свою формулу</button></p>
       </div>
-      <div class="rev">
+      <div class="rev" id="own">
         <label class="eyebrow" for="finIn" id="finLabel">Формула для закрашенной части</label>
         <div class="fed empty" id="fin" data-placeholder="например (A∪B)∖C"><input class="fed-in" id="finIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="fed-view" aria-hidden="true"></div></div>
         <div class="row keys" id="keys"></div>
@@ -957,6 +961,14 @@ button.report:hover{color:var(--ink)}
     } else insertAtCursor(ins);
   });
 
+  // «ввести свою формулу» в режиме задачи раскрывается и сворачивается
+  let ownOpen=false;
+  function syncOwn(){
+    const b=document.getElementById('bOwn');
+    document.getElementById('own').hidden=taskMode&&!ownOpen;
+    b.textContent=(ownOpen?'▾ ':'▸ ')+'ввести свою формулу'; b.setAttribute('aria-expanded',ownOpen);
+  }
+  document.getElementById('bOwn').onclick=()=>{ ownOpen=!ownOpen; syncOwn(); if(ownOpen) edIn.focus(); };
   function setTaskMode(on){
     taskMode=on;
     document.getElementById('tF').setAttribute('aria-pressed',!on);
@@ -964,6 +976,8 @@ button.report:hover{color:var(--ink)}
     document.getElementById('rev').hidden=!on;
     document.getElementById('revBtns').hidden=!on;
     document.getElementById('fwdBtns').hidden=on;
+    document.querySelector('.grid').classList.toggle('task',on);
+    syncOwn();
     fmsg.hidden=on;
     syncLvl();
     document.getElementById('finLabel').textContent=on?'Введите формулу':'Формула для закрашенной части';

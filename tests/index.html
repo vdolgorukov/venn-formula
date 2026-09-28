@@ -211,6 +211,17 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     if(!check(!$('ansBox').hidden&&$('bFShow').textContent.includes('Скрыть'),'«Показать ответы» не раскрыл варианты')) bad++;
     click($('bFShow'));
     if(!check($('ansBox').hidden&&$('bFShow').textContent.includes('Показать'),'повторное нажатие не свернуло варианты')) bad++;
+    // «Формула → диаграмма»: формула перед диаграммой, своя формула свёрнута и раскрывается
+    click($('tR'));
+    const W2=$('left').ownerDocument.defaultView;
+    if(!check(W2.getComputedStyle($('left')).order==='2','в «формула → диаграмма» диаграмма не идёт после формулы')) bad++;
+    const ownWas=!$('own').hidden; if(ownWas) click($('bOwn'));
+    if(!check($('own').hidden,'своя формула не свёрнута')) bad++;
+    click($('bOwn'));
+    if(!check(!$('own').hidden&&$('bOwn').getAttribute('aria-expanded')==='true','«ввести свою формулу» не раскрылось')) bad++;
+    if(!ownWas) click($('bOwn'));
+    click($('tF'));
+    if(!check(!$('own').hidden&&W2.getComputedStyle($('left')).order!=='2','в «диаграмма → формула» поле или порядок сломались')) bad++;
     // «Новая задача» перебирает все закраски, кроме пустой и полной, без повторов
     for(const k of [2,3]){
       await setN(k);
