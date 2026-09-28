@@ -98,8 +98,9 @@ button.primary:hover{filter:brightness(1.08)}
 .fed-caret{display:inline-block;width:0;height:1.1em;margin-right:-1.5px;border-left:1.5px solid var(--ink);vertical-align:-.2em;visibility:hidden}
 .fed.focus .fed-caret{visibility:visible;animation:fedblink 1.06s steps(1) infinite}
 @keyframes fedblink{50%{visibility:hidden}}
-.keys button{font-family:var(--math);font-size:17px;min-width:36px;padding:3px 8px}
-.keys .sep{width:6px}
+.keys button{font-family:var(--math);font-size:17px;min-width:38px;height:34px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center}
+.keys svg.op{width:.62em;height:.75em}
+.keys .brk{flex-basis:100%;height:0}
 .preview{font-size:22px}
 .preview:empty,.ferr:empty,.msg:empty{display:none}
 .ferr{margin:0;font-size:13px;color:var(--bad)}
@@ -927,8 +928,10 @@ button.report:hover{color:var(--ink)}
   function insertAtCursor(text){ insertText(text); edIn.focus(); }
   function renderKeys(){
     const k=[['∪','∪'],['∩','∩'],['∖','∖'],['‾','OV'],['(','('],[')',')']];
-    let h=k.map(([lbl,ins])=>`<button type="button" data-ins="${esc(ins)}" title="${lbl==='‾'?'Дополнение: выделенная часть формулы (или множество, скобка перед курсором) оказывается под чертой':'Вставить '+lbl}">${lbl==='‾'?'<span class="ov">&nbsp;X&nbsp;</span>':lbl}</button>`).join('');
-    h+='<span class="sep"></span>';
+    // ∪ ∩ ∖ рисуются теми же значками, что и в формулах: в шрифте они разного размера
+    const face={'∪':opSvg(PU,'∪',''),'∩':opSvg(PI_,'∩',''),'∖':opSvg(PD,'∖',''),'‾':'<span class="ov">&nbsp;X&nbsp;</span>'};
+    let h=k.map(([lbl,ins])=>`<button type="button" data-ins="${esc(ins)}" title="${lbl==='‾'?'Дополнение: выделенная часть формулы (или множество, скобка перед курсором) оказывается под чертой':'Вставить '+lbl}">${face[lbl]||lbl}</button>`).join('');
+    h+='<span class="brk"></span>';   // буквы — с новой строки
     h+=names.slice(0,n).map(nm=>`<button type="button" data-ins="${esc(nm)}">${esc(nm)}</button>`).join('');
     h+=`<button type="button" data-ins="${esc(uName)}">${esc(uName)}</button><button type="button" data-ins="∅">∅</button>`;
     document.getElementById('keys').innerHTML=h;
