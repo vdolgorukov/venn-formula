@@ -76,6 +76,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .settings summary{cursor:pointer;color:var(--muted);font-size:13.5px;width:max-content;list-style-position:outside}
 .settings summary:hover{color:var(--ink)}
 .settings[open] summary{margin-bottom:10px}
+.hint{border-top:0;padding-top:0}
+.hint[open] summary{margin-bottom:6px}
 .ans-h{margin-bottom:10px}
 .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;margin:0}
 .tools{display:flex;justify-content:flex-end}
@@ -99,8 +101,9 @@ button.primary:hover{filter:brightness(1.08)}
 @keyframes fedblink{50%{visibility:hidden}}
 .keys button{font-family:var(--math);font-size:17px;min-width:36px;padding:3px 8px}
 .keys .sep{width:6px}
-.preview{min-height:1.7em;font-size:22px}
-.ferr{margin:0;font-size:13px;color:var(--bad);min-height:1.2em}
+.preview{font-size:22px}
+.preview:empty,.ferr:empty,.msg:empty{display:none}
+.ferr{margin:0;font-size:13px;color:var(--bad)}
 .help{font-size:12.5px;color:var(--muted);margin:0;line-height:1.55}
 .help code{font-family:var(--mono);font-size:12px;background:var(--bg);padding:1px 4px;border-radius:4px}
 #out{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -204,7 +207,6 @@ button.report:hover{color:var(--ink)}
         <div class="row keys" id="keys"></div>
         <div class="expr preview" id="prev"></div>
         <p class="ferr" id="ferr"></p>
-        <p class="help">Кнопки вставляют символы. С клавиатуры можно печатать <code>+</code>, <code>*</code>, <code>-</code>: они сами превращаются в ∪, ∩, ∖. Дополнение: выделите часть формулы мышью или Shift+стрелками и нажмите кнопку с чертой — она окажется под чертой; без выделения черта ставится над множеством или скобкой перед курсором. Штрих <code>A'</code>, <code>(A∪B)'</code> тоже превращается в черту, работает и <code>~</code> перед множеством. Понимается и LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность — слева направо; как формула понята, видно в строке под полем.</p>
         <div class="row" id="revBtns" hidden>
           <button type="button" id="bPaint">Закрасить</button>
           <button type="button" id="bAsTask">Решить как задачу</button>
@@ -215,6 +217,7 @@ button.report:hover{color:var(--ink)}
           <button type="button" id="bFNew">Новая задача</button>
         </div>
         <p class="msg" id="fmsg" aria-live="polite"></p>
+        <details class="settings hint"><summary>Как вводить формулу</summary><p class="help">Кнопки вставляют символы. С клавиатуры можно печатать <code>+</code>, <code>*</code>, <code>-</code>: они сами превращаются в ∪, ∩, ∖. Дополнение: выделите часть формулы мышью или Shift+стрелками и нажмите кнопку с чертой — она окажется под чертой; без выделения черта ставится над множеством или скобкой перед курсором. Штрих <code>A'</code>, <code>(A∪B)'</code> тоже превращается в черту, работает и <code>~</code> перед множеством. Понимается и LaTeX: <code>\cup</code>, <code>\cap</code>, <code>\setminus</code>, <code>\overline{…}</code>, <code>\varnothing</code>. Без скобок пересечение выполняется раньше объединения и разности, а объединение и разность — слева направо; как формула понята, видно в строке под полем.</p></details>
       </div>
       <div id="ansBox" hidden>
         <p class="eyebrow ans-h">Правильные варианты</p>
