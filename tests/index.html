@@ -181,7 +181,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     const errCount=()=>D.querySelectorAll('#venn .reg.err').length;
     const pop=x=>{let c=0;while(x){c+=x&1;x>>>=1;}return c;};
     for(let i=0;i<60;i++){
-      const t=Math.floor(Math.random()*256);
+      let t; do{ t=Math.floor(Math.random()*256); }while(t===chipMask());   // закраска должна измениться
       setMask(t);
       if(!check($('ansBox').hidden,`маска ${t}: варианты видны до проверки`)) bad++;
       click($('bFShow')); const tex=shownTex(); setMask(t^1); setMask(t); // закраска менялась — варианты снова скрыты
@@ -347,7 +347,7 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     const fin=$('fin'); fin.value=''; fin.dispatchEvent(new W.Event('input'));
     const key=lbl=>[...D.querySelectorAll('#keys button')].find(b=>b.textContent.trim()===lbl);
     click(key('(')); click(key('A')); click(key('∪')); click(key('B')); click(key(')')); click(key('∖')); click(key('C'));
-    if(!check(fin.value.replace(/ /g,'')==='(A∪B)∖C',`кнопки вставили «${fin.value}» вместо «(A∪B)∖C»`)) bad++;
+    if(!check(fin.value==='(A∪B)∖C',`кнопки вставили «${fin.value}» вместо «(A∪B)∖C»`)) bad++;
     if(!check(!/\\/.test(fin.value),'кнопки вставили код LaTeX')) bad++;
     const OV=()=>click(D.querySelector('#keys button[data-ins="OV"]'));
     const bar=t=>'⟦'+t+'⟧';
@@ -363,18 +363,20 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     OV();
     if(!check(fin.value==='A∩'+bar(bar('(B∪C)')),`двойная черта: «${fin.value}»`)) bad++;
     if(!check(D.querySelectorAll('#fin .ov .ov').length===1,'двойная черта нарисована двумя уровнями')) bad++;
-    setF('A ∪ B ∩ C',4,9); OV();   // выделено «B ∩ C»
-    if(!check(fin.value==='A ∪ '+bar('B ∩ C'),`черта над выделенной частью: «${fin.value}»`)) bad++;
+    setF('A ∪ B ∩ C');
+    if(!check(fin.value==='A∪B∩C',`пробелы не убраны: «${fin.value}»`)) bad++;
+    fin.setSelectionRange(2,5); OV();   // выделено «B∩C»
+    if(!check(fin.value==='A∪'+bar('B∩C'),`черта над выделенной частью: «${fin.value}»`)) bad++;
     setF('A∪'+bar('B')+'∩C',3,4); OV();   // выделена только B под чертой — ставится вторая черта над B
     if(!check(fin.value==='A∪'+bar(bar('B'))+'∩C',`черта над частью под чертой: «${fin.value}»`)) bad++;
     setF('A∪'+bar('B∩C'),1,4); OV();   // выделение режет черту — расширяется до целой группы
     if(!check(fin.value==='A'+bar('∪'+bar('B∩C')),`выделение, режущее черту: «${fin.value}»`)) bad++;
-    setF('A∪ ',3); OV();
+    setF('A∪ '); OV();
     if(!check($('ferr').textContent.includes('Выделите'),'без операнда перед курсором — подсказка')) bad++;
     setF("(A∪B)'∩C'");
     if(!check(fin.value===bar('(A∪B)')+'∩'+bar('C'),`штрих не превратился в черту: «${fin.value}»`)) bad++;
     setF('\\overline{A \\cup B}');
-    if(!check(fin.value===bar('A ∪ B'),`\\overline не превратился в черту: «${fin.value}»`)) bad++;
+    if(!check(fin.value===bar('A∪B'),`\\overline не превратился в черту: «${fin.value}»`)) bad++;
     // мышь: протащить от левого края B до правого края C
     setF('A∪B∩C');
     const chAt=i=>D.querySelector(`#fin .ch[data-i="${i}"]`).getBoundingClientRect();
@@ -400,9 +402,11 @@ iframe{width:1100px;max-width:100%;height:700px;border:1px solid #8884;margin-to
     kb('a',{ctrlKey:true}); kb('Delete');
     if(!check(fin.value==='',`Ctrl+A и Delete оставили «${fin.value}»`)) bad++;
     fin.value='(A+B)*C-\\cup D';
-    if(!check(fin.value==='(A∪B)∩C∖∪ D',`набор с клавиатуры не превратился в символы: «${fin.value}»`)) bad++;
+    if(!check(fin.value==='(A∪B)∩C∖∪D',`набор с клавиатуры не превратился в символы: «${fin.value}»`)) bad++;
     fin.value='\\overline{A} \\cap B \\setminus \\varnothing';
-    if(!check(fin.value==='⟦A⟧ ∩ B ∖ ∅',`LaTeX не превратился в символы: «${fin.value}»`)) bad++;
+    if(!check(fin.value==='⟦A⟧∩B∖∅',`LaTeX не превратился в символы: «${fin.value}»`)) bad++;
+    fin.value='\\lnot A \\cup B^\\complement';
+    if(!check(fin.value==='~A∪⟦B⟧',`\\lnot и ^\\complement: «${fin.value}»`)) bad++;
     // значения закраски по символьной записи
     const A=varMaskN(3,0),B=varMaskN(3,1),C=varMaskN(3,2),F=255;
     for(const [src,want] of [['(A∪B)∖C',(A|B)&~C&F],['Aᶜ∩B',(F&~A)&B],['(A∩B)ᶜ',F&~(A&B)],['A∖B∖C',A&~B&~C&F],['∅∪A',A],

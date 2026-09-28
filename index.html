@@ -93,7 +93,6 @@ button.primary:hover{filter:brightness(1.08)}
 .fed.empty::after{content:attr(data-placeholder);position:absolute;left:10px;top:5px;color:var(--muted);font-size:17px;line-height:32px;pointer-events:none}
 .fed-in{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;font-size:16px}
 .fed-view{user-select:none;-webkit-user-select:none;overflow-wrap:anywhere}
-.fed-view .op{margin:0 .12em}
 .fed-view .sel{background:var(--shade);box-shadow:0 0 0 1px var(--shade)}
 .fed-view .ov{line-height:1.3}
 .fed-caret{display:inline-block;width:0;height:1.1em;margin-right:-1.5px;border-left:1.5px solid var(--ink);vertical-align:-.2em;visibility:hidden}
@@ -203,7 +202,7 @@ button.report:hover{color:var(--ink)}
       </div>
       <div class="rev">
         <label class="eyebrow" for="finIn" id="finLabel">Формула для закрашенной части</label>
-        <div class="fed empty" id="fin" data-placeholder="например (A ∪ B) ∖ C"><input class="fed-in" id="finIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="fed-view" aria-hidden="true"></div></div>
+        <div class="fed empty" id="fin" data-placeholder="например (A∪B)∖C"><input class="fed-in" id="finIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="fed-view" aria-hidden="true"></div></div>
         <div class="row keys" id="keys"></div>
         <div class="expr preview" id="prev"></div>
         <p class="ferr" id="ferr"></p>
@@ -781,13 +780,13 @@ button.report:hover{color:var(--ink)}
     }
     return out;
   }
-  // набранные с клавиатуры +, *, -, штрих и команды LaTeX сразу заменяются символами и чертой
+  // набранные с клавиатуры +, *, -, штрих и команды LaTeX сразу заменяются символами и чертой, пробелы убираются
   function toSymbols(t){
-    t=t.replace(/\\(smallsetminus|setminus|cup|cap|varnothing|emptyset)(?![A-Za-z])/g,(_,c)=>({smallsetminus:'∖',setminus:'∖',cup:'∪',cap:'∩',varnothing:'∅',emptyset:'∅'})[c])
+    t=t.replace(/\^?\\(smallsetminus|setminus|cup|cap|varnothing|emptyset|lnot|neg|complement)(?![A-Za-z])/g,(_,c)=>({smallsetminus:'∖',setminus:'∖',cup:'∪',cap:'∩',varnothing:'∅',emptyset:'∅',lnot:'~',neg:'~',complement:"'"})[c])
        .replace(/\+/g,'∪').replace(/\*/g,'∩').replace(/[-−]/g,'∖');
     let p;
     do{ p=t; t=t.replace(/\\overline\s*\{([^{}]*)\}/,(_,x)=>OB+x.trim()+CB); }while(t!==p);
-    return primesToBars(t);
+    return primesToBars(t).replace(/\s+/g,'');   // пробелы между символами не нужны
   }
   // пустые ⟦⟧ удаляются
   function tidy(){ let i; while((i=mv.indexOf(OB+CB))>=0){ mv=mv.slice(0,i)+mv.slice(i+2); if(cp>i) cp=Math.max(i,cp-2); if(an>i) an=Math.max(i,an-2); } }
@@ -927,7 +926,7 @@ button.report:hover{color:var(--ink)}
   };
   function insertAtCursor(text){ insertText(text); edIn.focus(); }
   function renderKeys(){
-    const k=[['∪',' ∪ '],['∩',' ∩ '],['∖',' ∖ '],['‾','OV'],['(','('],[')',')']];
+    const k=[['∪','∪'],['∩','∩'],['∖','∖'],['‾','OV'],['(','('],[')',')']];
     let h=k.map(([lbl,ins])=>`<button type="button" data-ins="${esc(ins)}" title="${lbl==='‾'?'Дополнение: выделенная часть формулы (или множество, скобка перед курсором) оказывается под чертой':'Вставить '+lbl}">${lbl==='‾'?'<span class="ov">&nbsp;X&nbsp;</span>':lbl}</button>`).join('');
     h+='<span class="sep"></span>';
     h+=names.slice(0,n).map(nm=>`<button type="button" data-ins="${esc(nm)}">${esc(nm)}</button>`).join('');
